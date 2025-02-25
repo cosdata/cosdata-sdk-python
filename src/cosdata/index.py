@@ -59,14 +59,6 @@ class Index:
             raise Exception(
                 f"Failed to create vector: {response.status_code} ({response.text})"
             )
-    
-    def upsert_vector(self, vectors):
-        url = f"{self.base_url}/upsert"
-        data = {"vector_db_name": self.index_name, "vectors": vectors}
-        response = requests.post(
-            url, headers=self.generate_headers(), data=json.dumps(data), verify=False
-        )
-        return response.json()
 
 
     def commit_transaction(self, collection_name, transaction_id):
