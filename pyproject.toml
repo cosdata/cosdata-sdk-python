@@ -5,18 +5,18 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "my_package"
+name = "cosdata_sdk_python"
 version = "0.1.0"
-description = "A sample Python package using setuptools"
+description = "Python client for Cosdata"
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "Cosdata", email = "cosdata@sample.com" }
 ]
 license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.7"
 dependencies = [
     "numpy>=1.21",
-    "pandas>=1.3"
+    "requests==2.32.3"
 ]
 
 [project.optional-dependencies]
@@ -29,9 +29,3 @@ docs = [
     "mkdocs",
     "mkdocs-material"
 ]
-
-[project.scripts]
-my-script = "my_package.module:main"
-
-[tool.setuptools]
-packages = ["my_package"]
