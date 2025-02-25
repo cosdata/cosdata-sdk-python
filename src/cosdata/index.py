@@ -11,6 +11,14 @@ class Index:
     def generate_headers(self):
         return {"Authorization": f"Bearer {self.__token}", "Content-type": "application/json"}
 
+    def upsert_vector(self, vectors):
+        url = f"{self.base_url}/upsert"
+        data = {"vector_db_name": self.index_name, "vectors": vectors}
+        response = requests.post(
+            url, headers=self.generate_headers(), data=json.dumps(data), verify=False
+        )
+        return response.json()
+
     def query_vector(self, idd, vector, top_k):
         url = f"{self.base_url}/search"
         data = {
