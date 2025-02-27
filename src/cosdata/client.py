@@ -1,10 +1,13 @@
 import requests
 import json
+from .index import Index
 
 class Client(object):
     def __init__(self,host, base_url):
         self.host = host
         self.base_url = base_url
+        self.token = None
+        self.create_session()
     
     def create_session(self):
         url = f"{self.host}/auth/create-session"
@@ -21,7 +24,7 @@ class Client(object):
     def generate_headers(self):
         return {"Authorization": f"Bearer {self.token}", "Content-type": "application/json"}
 
-    def create_db(self, vector_name, description, dimension: int):
+    def create_db(self, vector_name, description, dimension: int) -> Index:
         url = f"{self.base_url}/collections"
         data = {
             "name": vector_name,
@@ -38,7 +41,15 @@ class Client(object):
         response = requests.post(
             url, headers=self.generate_headers(), data=json.dumps(data), verify=False
         )
-        return response.json()
+
+        print(response.json())
+
+        return Index(
+            base_url=self.base_url,
+            index_name=vector_name,
+            host=self.host,
+            token=self.token
+        )
 
     def create_index(self, index_name, distance_metric):
         data = {

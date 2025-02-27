@@ -17,7 +17,7 @@ class Index:
         response = requests.post(
             url, headers=self.generate_headers(), data=json.dumps(data), verify=False
         )
-        return response.json()
+        return response
 
     def query_vector(self, idd, vector, top_k):
         url = f"{self.base_url}/search"
