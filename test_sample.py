@@ -1,6 +1,5 @@
 import numpy as np
 from cosdata.client import Client
-from cosdata.index import Index
 
 client = Client(
     host="http://127.0.0.1:8443",
