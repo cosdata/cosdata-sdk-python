@@ -46,6 +46,11 @@ print(db.upsert_in_transaction(
     vectors=batch_vectors
 ))
 
+print(db.commit_transaction(
+    collection_name=vector_db_name,
+    transaction_id=transaction_res['transaction_id']
+))
+
 query_vec = generate_random_vector_with_id(
     id=(101*dimension),
     length=dimension
