@@ -78,9 +78,11 @@ class Index:
         response = requests.post(
             url, data=json.dumps(data), headers=self.generate_headers(), verify=False
         )
+        
         if response.status_code not in [200, 204]:
             print(f"Error response: {response.text}")
             raise Exception(f"Failed to commit transaction: {response.status_code}")
+        
         return response.json() if response.text else None
 
 
