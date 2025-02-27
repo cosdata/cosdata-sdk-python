@@ -1,76 +1,64 @@
 import numpy as np
 import random
-from cosdata.client import Client
+import cosdata.client 
 
-client = Client(
-    host="http://127.0.0.1:8443",
-    base_url="http://127.0.0.1:8443/vectordb"
+
+client = cosdata.client.Client(
+    host="http://127.0.0.1:8443"
 )
 
 def generate_random_vector_with_id(id, length):
     values = np.random.uniform(-1, 1, length).tolist()
     return {"id": id, "values": values}
 
-def generate_random_vector(rows, dimensions, min_val, max_val):
-    return np.random.uniform(min_val, max_val, (rows, dimensions)).tolist()
-
-def generate_perturbation(base_vector, idd, perturbation_degree, dimensions):
-    perturbation = np.random.uniform(
-        -perturbation_degree, perturbation_degree, dimensions
-    )
-
-    perturbed_values = np.array(base_vector["values"]) + perturbation
-    clamped_values = np.clip(perturbed_values, -1, 1)
-
-    perturbed_vector = {"id": idd, "values": clamped_values.tolist()}
-    return perturbed_vector
-
-vector_db_name = "testdb_sdk"
+vector_db_name = "testdb_sdk_2"
 dimension=768
 description="Test Cosdata SDK"
 
-db = client.create_db(
-    vector_name=vector_db_name,
-    description=description,
-    dimension=dimension
+random_vector = generate_random_vector_with_id(
+    id=random.randint(1,100), 
+    length=dimension
 )
-
-print(client.create_index(
-    vector_db_name,
-    distance_metric="cosine"
-))
-
-transaction_res = db.create_transaction(
-    collection_name=vector_db_name
+random_1 = generate_random_vector_with_id(
+    id=random.randint(1, 100), 
+    length=dimension
 )
-
-test_vec = generate_random_vector_with_id(
-    id=(100*(dimension+random.randint(1,300))),
+random_2 = generate_random_vector_with_id(
+    id=random.randint(1, 100), 
     length=dimension
 )
 
-batch_vectors = [test_vec]
+batch_vector = [random_vector, random_1, random_2]
 
-print(db.upsert_in_transaction(
-    collection_name=vector_db_name,
-    transaction_id=transaction_res['transaction_id'],
-    vectors=batch_vectors
-))
-
-print(db.commit_transaction(
-    collection_name=vector_db_name,
-    transaction_id=transaction_res['transaction_id']
-))
-
-query_vec = generate_perturbation(
-    base_vector=test_vec,
-    idd=(100*(dimension+random.randint(1,300))),
-    perturbation_degree=0.95,
-    dimensions=dimension
+client.create_collection(
+    name=vector_db_name,
+    dimension=dimension,
+    description=description
 )
 
-print(db.query_vector(
-    idd=query_vec['id'],
-    vector=query_vec['values'],
-    top_k=5
+index = client.create_index(
+    collection_name=vector_db_name,
+    distance_metric="cosine"
+)
+
+upsert_trans = client.create_transaction(
+    collection_name=vector_db_name
+)
+
+upsert_trans.upsert_vectors(
+    vectors=batch_vector
+)
+
+upsert_trans.commit()
+
+print(client.search_vector(
+    collection_name=vector_db_name,
+    vector=random_1["values"],
+    nn_count=2
 ))
+
+print(client.get_collection(
+    collection_name=vector_db_name
+))
+
+print(client.list_collections())
