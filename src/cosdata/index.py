@@ -37,8 +37,16 @@ class Index:
         # Handle empty results gracefully
         if not result.get("RespVectorKNN", {}).get("knn"):
             return (idd, {"RespVectorKNN": {"knn": []}})
+    
         return (idd, result)
 
+    def create_transaction(self, collection_name):
+        url = f"{self.base_url}/collections/{collection_name}/transactions"
+        data = {"index_type": "dense"}
+        response = requests.post(
+            url, data=json.dumps(data), headers=self.generate_headers(), verify=False
+        )
+        return response.json()
 
     def upsert_in_transaction(self, collection_name, transaction_id, vectors):
         url = (
@@ -60,6 +68,7 @@ class Index:
                 f"Failed to create vector: {response.status_code} ({response.text})"
             )
 
+        return response.text
 
     def commit_transaction(self, collection_name, transaction_id):
         url = (
