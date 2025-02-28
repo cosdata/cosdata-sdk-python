@@ -19,16 +19,8 @@ random_vector = generate_random_vector_with_id(
     id=random.randint(1,100), 
     length=dimension
 )
-random_1 = generate_random_vector_with_id(
-    id=random.randint(1, 100), 
-    length=dimension
-)
-random_2 = generate_random_vector_with_id(
-    id=random.randint(1, 100), 
-    length=dimension
-)
 
-batch_vector = [random_vector, random_1, random_2]
+batch_vector = [random_vector]
 
 client.create_collection(
     name=vector_db_name,
@@ -41,19 +33,17 @@ index = client.create_index(
     distance_metric="cosine"
 )
 
-upsert_trans = client.create_transaction(
+txn = index.create_transaction(
     collection_name=vector_db_name
 )
-
-upsert_trans.upsert_vectors(
+txn.upsert_vectors(
     vectors=batch_vector
 )
+txn.commit()
 
-upsert_trans.commit()
-
-print(client.search_vector(
+print(index.search_vector(
     collection_name=vector_db_name,
-    vector=random_1["values"],
+    vector=random_vector["values"],
     nn_count=2
 ))
 

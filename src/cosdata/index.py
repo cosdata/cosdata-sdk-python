@@ -1,7 +1,7 @@
-from typing import Dict, Any
+from typing import Dict, Any, List, Union
 import requests
 import json
-
+from .transaction import Transaction
 
 class Index:
     """
@@ -75,5 +75,86 @@ class Index:
         
         if response.status_code not in [200, 201]:
             raise Exception(f"Failed to create index: {response.text}")
+            
+        return response.json()
+    
+    def create_transaction(self, collection_name: str) -> Transaction:
+        """
+        Create a new transaction for the specified collection.
+        
+        Args:
+            collection_name: Name of the collection
+            
+        Returns:
+            Transaction object
+        """
+        return Transaction(self.client, collection_name)
+    
+    def search_vector(
+        self, 
+        collection_name: str, 
+        vector: List[float], 
+        nn_count: int = 5
+    ) -> Dict[str, Any]:
+        """
+        Search for nearest neighbors of a vector.
+        
+        Args:
+            collection_name: Name of the collection to search in
+            vector: Vector to search for similar vectors
+            nn_count: Number of nearest neighbors to return
+            
+        Returns:
+            Search results
+        """
+        url = f"{self.client.base_url}/search"
+        data = {
+            "vector_db_name": collection_name,
+            "vector": vector,
+            "nn_count": nn_count
+        }
+        
+        response = requests.post(
+            url, 
+            headers=self.client._get_headers(), 
+            data=json.dumps(data), 
+            verify=self.client.verify_ssl
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to search vector: {response.text}")
+            
+        return response.json()
+    
+    def fetch_vector(
+        self, 
+        collection_name: str, 
+        vector_id: Union[str, int]
+    ) -> Dict[str, Any]:
+        """
+        Fetch a specific vector by ID.
+        
+        Args:
+            collection_name: Name of the collection
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            Vector data
+        """   
+        url = f"{self.base_url}/fetch"
+        data = {
+            "vector_db_name": collection_name,
+            "vector_id": vector_id
+        }
+        
+        response = requests.post(
+            url, 
+            headers=self._get_headers(), 
+            data=json.dumps(data), 
+            verify=self.verify_ssl
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to fetch vector: {response.text}")
             
         return response.json()
