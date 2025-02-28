@@ -1,0 +1,31 @@
+#sample template
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cosdata_sdk_python"
+version = "0.1.0"
+description = "Python client for Cosdata"
+authors = [
+    { name = "Cosdata", email = "cosdata@sample.com" }
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "numpy>=1.21",
+    "requests==2.32.3"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "black"
+]
+
+docs = [
+    "mkdocs",
+    "mkdocs-material"
+]
