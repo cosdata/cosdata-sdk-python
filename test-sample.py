@@ -18,48 +18,45 @@ vector_db_name = "testdb_sdk_2"
 dimension = 768
 description = "Test Cosdata SDK"
 
-# Method 1: Step-by-step approach
+# Create collection and index
 collection = client.create_collection(
     name=vector_db_name,
     dimension=dimension,
     description=description
 )
-
 index = collection.create_index(
     distance_metric="cosine"
 )
 
-# Generate 100 random vectors
+# Generate 1000 random vectors
 batch_vectors = [
     generate_random_vector_with_id(i+1, dimension) 
-    for i in range(100)
+    for i in range(1000)
 ]
 
-# Method 2: Using context manager for transaction
+print(f"Generated {len(batch_vectors)} vectors")
+
+# Upsert all vectors in a single transaction (SDK will handle batching)
 with index.transaction() as txn:
     txn.upsert(batch_vectors)
-    # Auto-commits on successful exit
-
-# Method 3: Chainable methods approach
-# client.collection(vector_db_name).index().create_transaction().upsert(batch_vectors).commit()
+    print(f"Upserting complete - all vectors inserted in a single transaction")
 
 # Select a random vector from the batch to query
 query_vector = random.choice(batch_vectors)
-print("Querying with vector ID:", query_vector["id"])
+print(f"Querying with vector ID: {query_vector['id']}")
 
 # Query the index
 results = index.query(
     vector=query_vector["values"],
     nn_count=5
 )
-print("Query results:", results)
+print(f"Query results: {results}")
 
 # Get collection info
 collection_info = collection.get_info()
-print("Collection info:", collection_info)
+print(f"Collection info: {collection_info}")
 
-# Method 4: List all collections using iterator
+# List all collections
 print("All collections:")
 for coll in client.collections():
     print(f" - {coll.name} (dimension: {coll.dimension})")
-

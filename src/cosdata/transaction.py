@@ -15,10 +15,12 @@ class Transaction:
         Args:
             client: VectorDBClient instance
             collection_name: Name of the collection
+            batch_size: Maximum number of vectors per batch
         """
         self.client = client
         self.collection_name = collection_name
         self.transaction_id: Optional[str] = None
+        self.batch_size = 200  # Maximum vectors per batch
         self._create()
     
     def _create(self) -> str:
@@ -45,15 +47,12 @@ class Transaction:
         self.transaction_id = result["transaction_id"]
         return self.transaction_id
     
-    def upsert(self, vectors: List[Dict[str, Any]]) -> Self:
+    def _upsert_batch(self, batch: List[Dict[str, Any]]) -> None:
         """
-        Upsert multiple vectors into the transaction.
+        Upsert a single batch of vectors.
         
         Args:
-            vectors: List of dictionaries containing vector data with 'id' and 'values' keys
-            
-        Returns:
-            Self for method chaining
+            batch: List of vector dictionaries to upsert
         """
         if not self.client.token:
             self.client.login()
@@ -62,7 +61,7 @@ class Transaction:
             self._create()
             
         url = f"{self.client.base_url}/collections/{self.collection_name}/transactions/{self.transaction_id}/upsert"
-        data = {"index_type": "dense", "vectors": vectors}
+        data = {"index_type": "dense", "vectors": batch}
         
         response = requests.post(
             url,
@@ -73,6 +72,21 @@ class Transaction:
         
         if response.status_code not in [200, 204]:
             raise Exception(f"Failed to upsert vectors: {response.text}")
+    
+    def upsert(self, vectors: List[Dict[str, Any]]) -> Self:
+        """
+        Upsert vectors into the transaction, automatically splitting into batches.
+        
+        Args:
+            vectors: List of dictionaries containing vector data with 'id' and 'values' keys
+            
+        Returns:
+            Self for method chaining
+        """
+        # Split vectors into batches of batch_size
+        for i in range(0, len(vectors), self.batch_size):
+            batch = vectors[i:i + self.batch_size]
+            self._upsert_batch(batch)
             
         return self
     
