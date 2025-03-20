@@ -31,10 +31,10 @@ collection = client.create_collection(
 # Create an index (all parameters are optional)
 index = collection.create_index(
     distance_metric="cosine",       # Default: cosine
-    num_layers=7,                   # Default: 7
+    num_layers=10,                   # Default: 10
     max_cache_size=1000,            # Default: 1000
-    ef_construction=512,            # Default: 512
-    ef_search=256,                  # Default: 256
+    ef_construction=128,            # Default: 128
+    ef_search=64,                  # Default: 64
     neighbors_count=32,             # Default: 32
     level_0_neighbors_count=64      # Default: 64
 )
