@@ -5,7 +5,7 @@ A Python SDK for interacting with the Cosdata Vector Database.
 ## Installation
 
 ```bash
-pip install cosdata
+pip install cosdata-client
 ```
 
 ## Quick Start
