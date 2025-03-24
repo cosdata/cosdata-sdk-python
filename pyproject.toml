@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cosdata-client"
-version = "0.1.3"
+version = "0.1.4"
 description = "A Python SDK for interacting with the Cosdata Vector Database"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -29,9 +29,6 @@ classifiers = [
 Homepage = "https://github.com/cosdata/cosdata-sdk-python"
 Repository = "https://github.com/cosdata/cosdata-sdk-python.git"
 Issues = "https://github.com/cosdata/cosdata-sdk-python/issues"
-
-[project.scripts]
-cosdata = "cosdata.cli:main"
 
 [tool.hatch.build]
 only-packages = true
