@@ -106,7 +106,7 @@ class Client:
                 "auto_create_index": False,
                 "dimension": dimension,
             },
-            "sparse_vector": {"enabled": False, "auto_create_index": False},
+            "sparse_vector": {"enabled": True, "auto_create_index": True},
             "metadata_schema": None,
             "config": {"max_vectors": None, "replication_factor": None},
         }
