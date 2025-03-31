@@ -45,7 +45,7 @@ print(f"Generated {len(batch_vectors)} vectors.")
 # -----------------------------------------------------
 with index.transaction() as txn:
     txn.upsert(batch_vectors)
-    print("✅ Upserting complete - all vectors inserted in a single transaction")
+    print(" Upserting complete - all vectors inserted in a single transaction")
 
 # -----------------------------------------------------
 # Define multiple text queries for hybrid search

@@ -27,9 +27,7 @@ class SimpleTokenizer:
 
 def load_stopwords(stopwords_dir: Optional[Path], language: str) -> Set[str]:
     if stopwords_dir is None:
-        
         stopwords_dir = Path(__file__).parent
-       
 
     stopwords_path = stopwords_dir / "EN-Stopwords1.txt"
     if not stopwords_path.exists():
@@ -40,7 +38,7 @@ def load_stopwords(stopwords_dir: Optional[Path], language: str) -> Set[str]:
     with stopwords_path.open("r", encoding="utf-8") as f:
         return set(line.strip() for line in f if line.strip())
   
-    return stopwords
+    return set()
 
 def process_sentence(sentence: str,
                      language: str = "english",
@@ -75,20 +73,49 @@ def process_sentence(sentence: str,
             processed_tokens.append(stemmed_token)
     return processed_tokens
 
-def count_and_clamp_frequencies(tokens: List[str]) -> Dict[str, int]:
-    freq = defaultdict(int)
+#  we now compute BM25 term frequencies.
+
+def bm25_term_frequencies(tokens: List[str], k: float = 1.2, b: float = 0.75, avg_len: float = 128.0) -> Dict[str, float]:
+    """
+    Compute the BM25 term frequency component for each token.
+    
+    For each token, the TF is computed as:
+    
+        TF = (f * (k + 1)) / (f + k * (1 - b + b * (|d| / avg_len)))
+    
+    where:
+      - f is the frequency of the token in the document,
+      - |d| is the document length (number of tokens),
+      - avg_len is the average document length (default 128).
+    """
+    tf_map: Dict[str, float] = {}
+    counter: defaultdict[str, int] = defaultdict(int)
     for token in tokens:
-        freq[token] += 1
-    # clamp freq to max 8
-    return {token: min(count, 8) for token, count in freq.items()}
+        counter[token] += 1
+
+    doc_len = len(tokens)
+    for token, count in counter.items():
+        tf_value = count * (k + 1) / (count + k * (1 - b + b * doc_len / avg_len))
+        tf_map[token] = float(tf_value)
+    return tf_map
 
 def hash_token(token: str) -> int:
     return xxhash.xxh32(token.encode("utf-8")).intdigest() & 0xFFFFFFFF
 
-def construct_sparse_vector(tokens: List[str]) -> Tuple[List[Tuple[int, np.uint8]], np.uint16]:
-    freq = count_and_clamp_frequencies(tokens)
-    sparse_vector = [(hash_token(token), np.uint8(count)) for token, count in freq.items()]
-    doc_length = np.uint16(len(tokens))
+def construct_sparse_vector(tokens: List[str]) -> Tuple[List[Tuple[int, np.float32]], int]:
+    """
+    Construct a sparse vector from tokens.
+    
+    Instead of using raw counts capped at 8, we now compute the f32 term frequencies
+    using the BM25 formula with an average document length of 128.
+    
+    Returns:
+        - A list of (token_hash, tf_value) pairs, where tf_value is a 32-bit float.
+        - The document length (number of tokens).
+    """
+    tf_dict = bm25_term_frequencies(tokens, k=1.2, b=0.75, avg_len=128.0)
+    sparse_vector = [(hash_token(token), np.float32(value)) for token, value in tf_dict.items()]
+    doc_length = len(tokens)
     return sparse_vector, doc_length
 
 ##############################################
@@ -222,7 +249,6 @@ class Collection:
         ##########################################################
         # 1) Dense Vector Search using global endpoint "/search"
         ##########################################################
-        # Generate a random dense vector for the query
         dense_vector = np.random.uniform(-1, 1, self.dimension).tolist()  # Random dense vector
         dense_payload = {
             "vector_db_name": self.name,
@@ -256,8 +282,7 @@ class Collection:
         ##########################################################
         sparse_tokens = process_sentence(query, language="english")
         sparse_vector, doc_length = construct_sparse_vector(sparse_tokens)
-        sparse_vector_serializable = [[pair[0], int(pair[1])] for pair in sparse_vector]
-        # Generate a random dense vector for the sparse branch as well
+        sparse_vector_serializable = [[pair[0], float(pair[1])] for pair in sparse_vector]
         random_dense_for_sparse = np.random.uniform(-1, 1, self.dimension).tolist()
         sparse_payload = {
             "vector_db_name": self.name,
