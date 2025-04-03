@@ -3,6 +3,7 @@ import requests
 import json
 from typing import List, Optional, Dict, Any, Union, Iterator
 from .collection import Collection
+from .vector_utils import process_sentence, construct_sparse_vector
 
 class Client:
     """
