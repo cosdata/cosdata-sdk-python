@@ -1,67 +1,50 @@
-# index.py
 import json
 import requests
-from typing import Dict, Any, List, Optional, Union, Iterator, TypeVar, Generic, ContextManager
+from typing import Dict, Any, Iterator, Union
 from contextlib import contextmanager
+
 from .transaction import Transaction
 
-T = TypeVar('T')
-
-class TransactionContextManager(Generic[T], ContextManager[T]):
-    """Context manager for transactions"""
-    def __init__(self, transaction: T):
-        self.transaction = transaction
-    
-    def __enter__(self) -> T:
-        return self.transaction
-    
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if exc_type is None:
-            # No exception occurred, commit the transaction
-            self.transaction.commit()
-        else:
-            # An exception occurred, abort the transaction
-            self.transaction.abort()
 
 class Index:
     """
     Class for managing indexes in the vector database.
     """
-    
-    def __init__(self, client, collection):
+    def __init__(self, client, collection, index_type: str = "dense"):
         """
-        Initialize an Index object.
-        
         Args:
-            client: VectorDBClient instance
-            collection: Collection object this index belongs to
+            client: API client instance.
+            collection: Collection object this index belongs to.
+            index_type: 'dense' or 'sparse'
         """
         self.client = client
         self.collection = collection
-    
+        self.index_type = index_type
+
     def create_transaction(self) -> Transaction:
         """
         Create a new transaction for this index.
-        
+
         Returns:
             Transaction object
         """
-        return Transaction(self.client, self.collection.name)
-    
+        return Transaction(
+            client=self.client,
+            collection_name=self.collection.name,
+            index_type=self.index_type
+        )
+
     @contextmanager
     def transaction(self) -> Iterator[Transaction]:
         """
-        Create a transaction with context management.
-        
-        This allows for automatic commit on success or abort on exception.
-        
+        Context-managed transaction.
+
+        Auto-commits if no exception is raised.
+        Aborts if an exception occurs.
+
         Example:
             with index.transaction() as txn:
-                txn.upsert(vectors)
-                # Auto-commits on exit or aborts on exception
-        
-        Yields:
-            Transaction object
+                txn.upsert([...])
         """
         txn = self.create_transaction()
         try:
@@ -70,61 +53,61 @@ class Index:
         except Exception:
             txn.abort()
             raise
-    
-    def query(self, vector: List[float], nn_count: int = 5) -> Dict[str, Any]:
+
+    def query(self, vector: list, nn_count: int = 5) -> Dict[str, Any]:
         """
-        Search for nearest neighbors of a vector.
-        
+        Query nearest neighbors for a given vector using the new dedicated search endpoints.
+
         Args:
-            vector: Vector to search for similar vectors
-            nn_count: Number of nearest neighbors to return
-            
+            vector: The query vector.
+            nn_count: Number of neighbors to return.
+
         Returns:
-            Search results
+            Search results as a dictionary.
         """
-        url = f"{self.client.base_url}/search"
-        data = {
-            "vector_db_name": self.collection.name,
-            "vector": vector,
-            "nn_count": nn_count
-        }
-        
+        if self.index_type == "dense":
+            url = f"{self.client.base_url}/collections/{self.collection.name}/search/dense"
+            payload = {
+                "vector": vector,
+                "k": nn_count
+            }
+        elif self.index_type == "sparse":
+            url = f"{self.client.base_url}/collections/{self.collection.name}/search/sparse"
+            # For sparse search, assume 'vector' is already a serializable list (e.g. [[token_id, score], ...]).
+            payload = {
+                "values": vector,
+                "top_k": nn_count
+            }
+        else:
+            raise Exception("Unsupported index type for query.")
+
         response = requests.post(
-            url, 
-            headers=self.client._get_headers(), 
-            data=json.dumps(data), 
+            url,
+            headers=self.client._get_headers(),
+            data=json.dumps(payload),
             verify=self.client.verify_ssl
         )
-        
         if response.status_code != 200:
-            raise Exception(f"Failed to search vector: {response.text}")
-            
+            raise Exception(f"Failed to query vector: {response.text}")
         return response.json()
-    
+
     def fetch_vector(self, vector_id: Union[str, int]) -> Dict[str, Any]:
         """
-        Fetch a specific vector by ID.
-        
+        Fetch a vector from the database by its ID using the updated endpoint.
+
         Args:
-            vector_id: ID of the vector to fetch
-            
+            vector_id: The ID of the vector to fetch.
+
         Returns:
-            Vector data
-        """   
-        url = f"{self.client.base_url}/fetch"
-        data = {
-            "vector_db_name": self.collection.name,
-            "vector_id": vector_id
-        }
-        
-        response = requests.post(
-            url, 
-            headers=self.client._get_headers(), 
-            data=json.dumps(data), 
+            The vector's data.
+        """
+        # Updated endpoint: using the new vector route under the collection scope.
+        url = f"{self.client.base_url}/collections/{self.collection.name}/vectors/{vector_id}"
+        response = requests.get(
+            url,
+            headers=self.client._get_headers(),
             verify=self.client.verify_ssl
         )
-        
         if response.status_code != 200:
             raise Exception(f"Failed to fetch vector: {response.text}")
-            
         return response.json()
