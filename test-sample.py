@@ -1,4 +1,5 @@
 import numpy as np
+import requests
 from cosdata.client import Client
 from cosdata.transaction import Transaction
 from cosdata.vector_utils import process_sentence, construct_sparse_vector
@@ -9,7 +10,7 @@ from cosdata.vector_utils import process_sentence, construct_sparse_vector
 
 vector_db_name = "testdb_sdk_2"
 dimension = 768
-description = "Test Cosdata SDK: Dense + SPLADE Sparse operations."
+description = "Test Cosdata SDK: Dense + SPLADE Sparse + IDF operations."
 cosdata_host = "http://127.0.0.1:8443"
 num_dense_vectors = 20
 num_sparse_vectors = 20
@@ -41,7 +42,20 @@ def generate_sparse_vector_from_text(doc_id: int, text_content: str) -> dict:
 
 def generate_idf_document_with_id(doc_id: int, text_content: str) -> dict:
     """Generate a document with text for IDF upsert."""
-    return {"id": doc_id, "document": {"text": text_content}}
+    return {"id": doc_id, "text": text_content}
+
+def delete_idf_index(collection):
+    """
+    Deletes the TF-IDF index from the collection.
+    
+    This sends an HTTP DELETE request to the endpoint:
+    /collections/{collection_name}/indexes/tf_idf
+    """
+    url = f"{collection.client.base_url}/collections/{collection.name}/indexes/tf_idf"
+    response = requests.delete(url, headers=collection.client._get_headers(), verify=collection.client.verify_ssl)
+    if response.status_code not in [200, 204]:
+        raise Exception(f"Failed to delete TF-IDF index: {response.text}")
+    print("- Existing TF-IDF index deleted.")
 
 # -----------------------------------------------------
 # Generate Sentences for Sparse Vectors
@@ -127,9 +141,17 @@ if __name__ == "__main__":
             print("- Dense index created.")
             splade_index = collection.create_splade_index()      # Uses /collections/{id}/indexes/sparse
             print("- SPLADE sparse index created.")
-            # Uncomment if IDF index creation becomes available:
-            # idf_index = collection.create_idf_index()
-            # print("- IDF sparse index created.")
+            try:
+                idf_index = collection.create_idf_index()        # Uses /collections/{id}/indexes/tf-idf
+                print("- IDF index created.")
+            except Exception as e:
+                if "409" in str(e):
+                    print("TF-IDF index already exists. Deleting it first...")
+                    delete_idf_index(collection)
+                    idf_index = collection.create_idf_index()    # Retry creating the index
+                    print("- IDF index created after deletion.")
+                else:
+                    raise e
         except Exception as e:
             print(f"- Error creating indexes: {e}")
 
@@ -141,7 +163,7 @@ if __name__ == "__main__":
             txn.upsert(dense_vectors)
         print("- All dense vectors upserted.")
 
-        # Upsert Sparse Vectors for SPLADE index using sparse transaction
+        # # Upsert Sparse Vectors for SPLADE index using sparse transaction
         splade_vectors = [
             generate_sparse_vector_from_text(i + 1 + num_dense_vectors, sentences[i])
             for i in range(len(sentences))
@@ -151,6 +173,17 @@ if __name__ == "__main__":
         with Transaction(client, vector_db_name, "sparse") as txn:
             txn.upsert(splade_vectors)
         print("- All sparse vectors upserted.")
+
+        # # Upsert Documents for IDF Index using a tf-idf transaction
+        idf_docs = [
+            generate_idf_document_with_id(i + 1 + num_dense_vectors + len(splade_vectors), text)
+            for i, text in enumerate(idf_documents)
+        ]
+        print(f"\nGenerated {len(idf_docs)} documents for IDF index.")
+        print("\nUpserting documents into IDF index (using tf-idf transactions)...")
+        with Transaction(client, vector_db_name, "tf_idf") as txn:
+            txn.upsert(idf_docs)
+        print("- All IDF documents upserted.")
 
         # Run Searches using updated endpoint methods
         queries = [
@@ -176,13 +209,16 @@ if __name__ == "__main__":
             for res in sparse_results:
                 print(f"  ID: {res['id']} | Score: {res['score']:.4f} | Doc: {res.get('document')}")
 
+            print("\nTF-IDF Search:")
+            ires = collection.idf_search(query, top_k=5)
+            for r in ires:
+                print(f"  ID: {r['id']} | Score: {r['score']:.4f} | Doc: {r.get('document')}")    
+
             # Hybrid Search (still under /search/hybrid)
             print("\nHybrid Search:")
             hybrid_results = collection.hybrid_search(query=query, alpha=0.5, top_k=5)
             for res in hybrid_results:
                 print(f"  ID: {res['id']} | Score: {res['score']:.4f} | Doc: {res.get('document')}")
-
-           
 
         # Collection Info (using the unified endpoint)
         print("\nCollection Info:")

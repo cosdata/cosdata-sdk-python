@@ -54,14 +54,11 @@ class Client:
             "name": name,
             "description": description,
             "dense_vector": {
-                "enabled": True,
-                "auto_create_index": False,
-                "dimension": dimension,
+                "enabled": False,
+                "dimension": 768,
             },
-            "sparse_vector": {
-                "enabled": True,
-                "auto_create_index": False
-            },
+            "sparse_vector": {"enabled": False},
+            "tf_idf_options": {"enabled": True}, # this is new
             "metadata_schema": None,
             "config": {"max_vectors": None, "replication_factor": None},
         }
