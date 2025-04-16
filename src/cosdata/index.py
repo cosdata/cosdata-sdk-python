@@ -73,7 +73,6 @@ class Index:
             }
         elif self.index_type == "sparse":
             url = f"{self.client.base_url}/collections/{self.collection.name}/search/sparse"
-            # For sparse search, assume 'vector' is already a serializable list (e.g. [[token_id, score], ...]).
             payload = {
                 "values": vector,
                 "top_k": nn_count
