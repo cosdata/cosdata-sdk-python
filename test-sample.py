@@ -215,10 +215,15 @@ if __name__ == "__main__":
                 print(f"  ID: {r['id']} | Score: {r['score']:.4f} | Doc: {r.get('document')}")    
 
             # Hybrid Search (still under /search/hybrid)
-            print("\nHybrid Search:")
-            hybrid_results = collection.hybrid_search(query=query, alpha=0.5, top_k=5)
-            for res in hybrid_results:
+            print("\nHybrid Search for Dense+ Sparse:")
+            hybrid_results_DS = collection.hybrid_search_Dense_sparse(query=query, alpha=0.5, top_k=5)
+            for res in hybrid_results_DS:
                 print(f"  ID: {res['id']} | Score: {res['score']:.4f} | Doc: {res.get('document')}")
+
+            print("\nHybrid Search for Dense+ IDF:")
+            hybrid_results_DI = collection.hybrid_search_Dense_idf(query=query, alpha=0.5, top_k=5)
+            for res in hybrid_results_DI:
+                print(f"  ID: {res['id']} | Score: {res['score']:.4f} | Doc: {res.get('document')}")    
 
         # Collection Info (using the unified endpoint)
         print("\nCollection Info:")

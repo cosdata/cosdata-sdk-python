@@ -126,8 +126,8 @@ class Collection:
             raise Exception(f"SPLADE sparse search failed: {response.text}")
         return self._parse_response(response.json())
 
-    def hybrid_search(self, query: str, alpha: float = 0.5, top_k: int = 10, query_vector: List[float] = None) -> List[Dict[str, Any]]:
-        """Performs a hybrid (dense + sparse) search."""
+    def hybrid_search_Dense_sparse(self, query: str, alpha: float = 0.5, top_k: int = 10, query_vector: List[float] = None) -> List[Dict[str, Any]]:
+        
         sparse_tokens = process_sentence(query, language="english")
         sparse_vector, _ = construct_sparse_vector(sparse_tokens)
         terms = [[int(tid), float(score)] for tid, score in sparse_vector]
@@ -139,6 +139,46 @@ class Collection:
         if response.status_code != 200:
             raise Exception(f"Hybrid search failed: {response.text}")
         return self._parse_response(response.json())
+    
+    def hybrid_search_Dense_idf(self, query: str,
+                                alpha: float = 0.5,
+                                top_k: int = 10,
+                                query_vector: List[float] = None) -> List[Dict[str, Any]]:
+        """
+        Hybrid search combining dense-vector similarity and TF-IDF document similarity.
+        alpha weights the dense score and (1-alpha) weights the TF-IDF score.
+        """
+        # Generate a query vector if none provided
+        if query_vector is None:
+            query_vector = np.random.uniform(-1, 1, self.dimension).tolist()
+
+        # Perform dense search
+        dense_results = self.dense_search(query_vector=query_vector, top_k=top_k)
+        # Perform TF-IDF search
+        idf_results = self.idf_search(query, top_k=top_k)
+
+        # Map id to scores and documents
+        dense_map = {r["id"]: r["score"] for r in dense_results}
+        dense_docs = {r["id"]: r.get("document") for r in dense_results}
+        idf_map = {r["id"]: r["score"] for r in idf_results}
+        idf_docs = {r["id"]: r.get("document") for r in idf_results}
+
+        # Combine and weight scores
+        combined = []
+        all_ids = set(dense_map) | set(idf_map)
+        for vid in all_ids:
+            dscore = dense_map.get(vid, 0.0)
+            iscore = idf_map.get(vid, 0.0)
+            score = alpha * dscore + (1 - alpha) * iscore
+            # Prefer dense doc payload if available
+            doc = dense_docs.get(vid) or idf_docs.get(vid)
+            combined.append({"id": vid, "score": score, "document": doc})
+
+        # Sort by combined score descending and return top_k
+        combined.sort(key=lambda x: x["score"], reverse=True)
+        return combined[:top_k]
+
+
 
     def idf_search(self, query: str, top_k: int = 10) -> List[Dict[str, Any]]:
         """Performs a TF-IDF document search."""
