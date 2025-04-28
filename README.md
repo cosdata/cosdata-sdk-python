@@ -22,14 +22,15 @@ client = Client(
 )
 
 # Create a collection
-collection = client.create_collection(
+collection = client.collections.create(
     name="my_collection",
     dimension=768,                  # Vector dimension
     description="My vector collection"
 )
 
 # Create an index (all parameters are optional)
-index = collection.create_index(
+index = client.indexes.create(
+    collection_name="my_collection",
     distance_metric="cosine",       # Default: cosine
     num_layers=10,                   # Default: 10
     max_cache_size=1000,            # Default: 1000
@@ -57,26 +58,36 @@ def generate_random_vector(id: int, dimension: int) -> dict:
 vectors = [generate_random_vector(i, 768) for i in range(100)]
 
 # Add vectors using a transaction
-with index.transaction() as txn:
-    txn.upsert(vectors)
+with client.transactions.create() as txn:
+    txn.upsert("my_collection", vectors)
 
 # Search for similar vectors
-results = index.query(
+results = client.search.query(
+    collection_name="my_collection",
     vector=vectors[0]["values"],  # Use first vector as query
     nn_count=5                    # Number of nearest neighbors
 )
 
 # Fetch a specific vector
-vector = index.fetch_vector(vector_id="1")
+vector = client.vectors.fetch(
+    collection_name="my_collection",
+    vector_id="1"
+)
 
 # Get collection information
-collection_info = collection.get_info()
+collection_info = client.collections.get("my_collection")
 print(f"Collection info: {collection_info}")
 
 # List all collections
 print("Available collections:")
-for coll in client.collections():
-    print(f" - {coll.name} (dimension: {coll.dimension})")
+for coll in client.collections.list():
+    print(f" - {coll['name']} (dimension: {coll['dimension']})")
+
+# Version management
+version = client.versions.create(
+    collection_name="my_collection",
+    description="New version with updated vectors"
+)
 ```
 
 ## API Reference
@@ -94,58 +105,55 @@ client = Client(
 )
 ```
 
-Methods:
-- `create_collection(name: str, dimension: int = 1024, description: Optional[str] = None) -> Collection`
-- `get_collection(collection_name: str) -> Collection`
-- `list_collections() -> requests.Response`
-- `collections() -> Iterator[Collection]`
+The client provides access to the following modules:
+- `collections`: Collection management
+- `transactions`: Batch vector operations
+- `search`: Vector similarity search
+- `indexes`: Index management
+- `vectors`: Vector operations
+- `versions`: Version management
 
-### Collection
-
-Represents a collection in the vector database.
-
-```python
-collection = client.get_collection("my_collection")
-```
+### Collections
 
 Methods:
-- `create_index(distance_metric: str = "cosine", ...) -> Index`
-- `index(distance_metric: str = "cosine") -> Index`
-- `get_info() -> Dict[str, Any]`
+- `create(name: str, dimension: int = 1024, description: Optional[str] = None) -> Dict[str, Any]`
+- `get(collection_name: str) -> Dict[str, Any]`
+- `list() -> List[Dict[str, Any]]`
+- `delete(collection_name: str) -> None`
 
-### Index
-
-Manages indexes and vector operations.
-
-```python
-index = collection.create_index()
-```
+### Transactions
 
 Methods:
-- `create_transaction() -> Transaction`
-- `transaction() -> Iterator[Transaction]` (context manager)
-- `query(vector: List[float], nn_count: int = 5) -> Dict[str, Any]`
-- `fetch_vector(vector_id: Union[str, int]) -> Dict[str, Any]`
+- `create() -> Transaction`
+- `commit(transaction_id: str) -> Dict[str, Any]`
+- `abort(transaction_id: str) -> None`
 
-### Transaction
-
-Manages batch operations on vectors.
-
-```python
-# Using context manager (recommended)
-with index.transaction() as txn:
-    txn.upsert(vectors)
-
-# Manual transaction management
-txn = index.create_transaction()
-txn.upsert(vectors)
-txn.commit()  # or txn.abort()
-```
+### Search
 
 Methods:
-- `upsert(vectors: List[Dict[str, Any]]) -> Self`
-- `commit() -> Optional[Dict[str, Any]]`
-- `abort() -> Optional[Dict[str, Any]]`
+- `query(collection_name: str, vector: List[float], nn_count: int = 5) -> Dict[str, Any]`
+- `query_sparse(collection_name: str, vector: Dict[str, float], nn_count: int = 5) -> Dict[str, Any]`
+
+### Indexes
+
+Methods:
+- `create(collection_name: str, distance_metric: str = "cosine", ...) -> Dict[str, Any]`
+- `get(collection_name: str) -> Dict[str, Any]`
+- `delete(collection_name: str) -> None`
+
+### Vectors
+
+Methods:
+- `fetch(collection_name: str, vector_id: Union[str, int]) -> Dict[str, Any]`
+- `delete(collection_name: str, vector_id: Union[str, int]) -> None`
+
+### Versions
+
+Methods:
+- `create(collection_name: str, description: Optional[str] = None) -> Dict[str, Any]`
+- `get(collection_name: str, version_id: str) -> Dict[str, Any]`
+- `list(collection_name: str) -> List[Dict[str, Any]]`
+- `delete(collection_name: str, version_id: str) -> None`
 
 ## Best Practices
 
@@ -167,6 +175,11 @@ Methods:
    - Adjust index parameters based on your use case
    - Use appropriate vector dimensions
    - Consider batch sizes for large operations
+
+5. **Version Management**
+   - Create versions before major changes
+   - Use versions to track collection evolution
+   - Clean up old versions when no longer needed
 
 ## License
 
