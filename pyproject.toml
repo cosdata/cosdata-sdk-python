@@ -35,6 +35,7 @@ only-packages = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cosdata"]
+include = ["src/cosdata/**/*.py"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -42,3 +43,6 @@ include = [
     "README.md",
     "LICENSE",
 ]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"src/cosdata" = "cosdata_client"

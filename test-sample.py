@@ -1,62 +1,125 @@
 # test_sample.py
 import numpy as np
 import random
-from cosdata.client import Client
+from cosdata import Client
 
-# Initialize the client
-client = Client(
-    host="http://127.0.0.1:8443"
-)
+def generate_random_vector(dimension: int) -> list:
+    """Generate a random vector of the specified dimension."""
+    return np.random.uniform(-1, 1, dimension).tolist()
 
-def generate_random_vector_with_id(id: int, length: int) -> dict:
-    """Generate a random vector with the specified ID and dimension."""
-    values = np.random.uniform(-1, 1, length).tolist()
-    return {"id": id, "values": values}
+def main():
+    # Initialize the client
+    client = Client(
+        host="http://127.0.0.1:8443",
+        username="admin",
+        password="test_key"
+    )
 
-# Configuration
-vector_db_name = "testdb_sdk_2"
-dimension = 768
-description = "Test Cosdata SDK"
+    # Configuration
+    collection_name = "test_dense_collection"
+    dimension = 768
+    description = "Test collection for SDK demonstration"
 
-# Create collection and index
-collection = client.create_collection(
-    name=vector_db_name,
-    dimension=dimension,
-    description=description
-)
-index = collection.create_index(
-    distance_metric="cosine"
-)
+    print("\n=== Dense Vector Collection Management ===")
+    # Create a new dense collection
+    collection = client.collections.create(
+        name=collection_name,
+        dimension=dimension,
+        description=description,
+        dense_vector={
+            "enabled": True,
+            "dimension": dimension
+        },
+        sparse_vector={
+            "enabled": False
+        },
+        tf_idf_options={
+            "enabled": False
+        }
+    )
+    print(f"Created dense collection: {collection.name}")
 
-# Generate 1000 random vectors
-batch_vectors = [
-    generate_random_vector_with_id(i+1, dimension) 
-    for i in range(1000)
-]
+    # List all collections
+    collections = client.collections.list()
+    print("\nAll collections:")
+    for coll in collections:
+        print(f" - {coll.name} (dense: {coll.dense_vector.get('enabled')})")
 
-print(f"Generated {len(batch_vectors)} vectors")
+    print("\n=== Dense Index Management ===")
+    # Create a dense vector index
+    dense_index = client.indexes.create_dense(
+        collection_name=collection_name,
+        name="dense_index",
+        distance_metric="cosine",
+        quantization_type="auto",
+        sample_threshold=100,
+        num_layers=7,
+        max_cache_size=1000,
+        ef_construction=512,
+        ef_search=256,
+        neighbors_count=32,
+        level_0_neighbors_count=64
+    )
+    print(f"Created dense index: {dense_index.name}")
 
-# Upsert all vectors in a single transaction (SDK will handle batching)
-with index.transaction() as txn:
-    txn.upsert(batch_vectors)
-    print(f"Upserting complete - all vectors inserted in a single transaction")
+    # Get index information
+    indexes = client.indexes.get(collection_name)
+    print(f"\nDense index information: {indexes}")
 
-# Select a random vector from the batch to query
-query_vector = random.choice(batch_vectors)
-print(f"Querying with vector ID: {query_vector['id']}")
+    print("\n=== Dense Vector Operations ===")
+    # Generate some test dense vectors
+    num_vectors = 1000
+    dense_vectors = []
+    for i in range(num_vectors):
+        vector_id = f"dense_vec_{i+1}"
+        dense_values = generate_random_vector(dimension)
+        dense_vectors.append({
+            "id": vector_id,
+            "dense_values": dense_values,
+            "document_id": f"doc_{i//10}"  # Group vectors into documents
+        })
+    print(f"Generated {len(dense_vectors)} test dense vectors")
 
-# Query the index
-results = index.query(
-    vector=query_vector["values"],
-    nn_count=5
-)
-print(f"Query results: {results}")
+    # Add dense vectors through a transaction
+    with client.transactions.transaction(collection_name) as txn:
+        for vector in dense_vectors:
+            txn.add_vector(
+                vector_id=vector["id"],
+                dense_values=vector["dense_values"],
+                document_id=vector["document_id"]
+            )
+    print("Added dense vectors through transaction")
 
-# Get collection info
-collection_info = collection.get_info()
-print(f"Collection info: {collection_info}")
+    # Verify vector existence
+    test_vector_id = dense_vectors[0]["id"]
+    exists = client.vectors.exists(collection_name, test_vector_id)
+    print(f"\nVector {test_vector_id} exists: {exists}")
 
-# List all collections
-print("All collections:")
-for coll in client.collections():
-    print(f" - {coll.name} (dimension: {coll.dimension})")
+    print("\n=== Dense Search Operations ===")
+    # Perform dense vector search
+    dense_query_vector = generate_random_vector(dimension)
+    dense_results = client.search.dense(
+        collection_name=collection_name,
+        query_vector=dense_query_vector,
+        top_k=5,
+        return_raw_text=True
+    )
+    print(f"Dense search results: {dense_results}")
+
+    print("\n=== Version Management ===")
+    # Get current version
+    current_version = client.versions.get_current(collection_name)
+    print(f"Current version: {current_version}")
+
+    # Cleanup
+    print("\n=== Cleanup ===")
+    # Delete the index
+    client.indexes.delete(collection_name, "dense")
+    print("Deleted dense index")
+
+    # Delete the collection
+    client.collections.delete(collection_name)
+    print("Deleted collection")
+
+if __name__ == "__main__":
+    main()
