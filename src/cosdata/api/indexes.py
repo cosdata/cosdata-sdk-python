@@ -254,16 +254,18 @@ class Index:
     Represents an index in a collection.
     """
     
-    def __init__(self, collection, name: str):
+    def __init__(self, collection, name: str, index_type: str = "dense"):
         """
         Initialize an index.
         
         Args:
             collection: Collection instance
             name: Name of the index
+            index_type: Type of index ("dense" or "sparse")
         """
         self.collection = collection
         self.name = name
+        self.index_type = index_type
 
     def create_transaction(self) -> Transaction:
         """
@@ -355,7 +357,7 @@ class Index:
         """
         Delete this index.
         """
-        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/indexes/dense"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/indexes/{self.index_type}"
         response = requests.delete(
             url, 
             headers=self.collection.client._get_headers(), 

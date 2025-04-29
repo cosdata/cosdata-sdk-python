@@ -3,8 +3,16 @@ import random
 import re
 import unicodedata
 import sys
+import logging
 from typing import Dict, List, Set
 from cosdata import Client
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def get_all_punctuation() -> Set[str]:
     """Get all Unicode punctuation characters."""
@@ -56,9 +64,9 @@ def main():
     dimension = 768
     description = "Test collection for full-text search operations"
 
-    print("\n=== Text Collection Management ===")
+    logger.info("\n=== Text Collection Management ===")
     # Create a new text collection
-    collection = client.collections.create(
+    collection = client.create_collection(
         name=collection_name,
         dimension=dimension,  # Required at root level
         description=description,
@@ -73,30 +81,29 @@ def main():
             "enabled": True
         }
     )
-    print(f"Created text collection: {collection.name}")
+    logger.info(f"Created text collection: {collection.name}")
 
     # List all collections
-    collections = client.collections.list()
-    print("\nAll collections:")
+    collections = client.collections()
+    logger.info("\nAll collections:")
     for coll in collections:
-        print(f" - {coll.name} (tf-idf: {coll.tf_idf_options.get('enabled')})")
+        logger.info(f" - {coll.name}")
 
-    print("\n=== TF-IDF Index Management ===")
+    logger.info("\n=== TF-IDF Index Management ===")
     # Create a TF-IDF index with BM25 parameters
-    tf_idf_index = client.indexes.create_tf_idf(
-        collection_name=collection_name,
+    index = collection.create_tf_idf_index(
         name="tf_idf_index",
         sample_threshold=1000,
         k1=1.5,  # BM25 k1 parameter
         b=0.75   # BM25 b parameter
     )
-    print(f"Created TF-IDF index: {tf_idf_index.name}")
+    logger.info(f"Created TF-IDF index: {index.name}")
 
     # Get index information
-    indexes = client.indexes.get(collection_name)
-    print(f"\nTF-IDF index information: {indexes}")
+    index_info = collection.get_index(index.name)
+    logger.info(f"\nIndex information: {index_info}")
 
-    print("\n=== Text Vector Operations ===")
+    logger.info("\n=== Text Vector Operations ===")
     # Generate some test text documents
     num_documents = 1000
     text_documents = []
@@ -109,24 +116,20 @@ def main():
             "text": text,
             "document_id": f"doc_{i//10}"  # Group documents
         })
-    print(f"Generated {len(text_documents)} test documents")
+    logger.info(f"Generated {len(text_documents)} test documents")
 
     # Add text documents through a transaction
-    with client.transactions.transaction(collection_name) as txn:
-        for doc in text_documents:
-            txn.add_vector(
-                vector_id=doc["id"],
-                text=doc["text"],
-                document_id=doc["document_id"]
-            )
-    print("Added text documents through transaction")
+    logger.info("Starting transaction...")
+    with collection.transaction() as txn:
+        txn.batch_upsert_vectors(text_documents)
+    logger.info("Added text documents through transaction")
 
     # Verify document existence
     test_doc_id = text_documents[0]["id"]
-    exists = client.vectors.exists(collection_name, test_doc_id)
-    print(f"\nDocument {test_doc_id} exists: {exists}")
+    exists = collection.vectors.exists(test_doc_id)
+    logger.info(f"\nDocument {test_doc_id} exists: {exists}")
 
-    print("\n=== Text Search Operations ===")
+    logger.info("\n=== Text Search Operations ===")
     # Perform text search with different queries
     test_queries = [
         "the quick brown fox jumps over the lazy dog",
@@ -137,29 +140,28 @@ def main():
     ]
     
     for query in test_queries:
-        print(f"\nSearch query: {query}")
-        text_results = client.search.text(
-            collection_name=collection_name,
+        logger.info(f"\nSearch query: {query}")
+        text_results = collection.search.text(
             query_text=query,
             top_k=5,
             return_raw_text=True
         )
-        print(f"Text search results: {text_results}")
+        logger.info(f"Text search results: {text_results}")
 
-    print("\n=== Version Management ===")
+    logger.info("\n=== Version Management ===")
     # Get current version
-    current_version = client.versions.get_current(collection_name)
-    print(f"Current version: {current_version}")
+    current_version = collection.versions.get_current()
+    logger.info(f"Current version: {current_version}")
 
     # Cleanup
-    print("\n=== Cleanup ===")
+    logger.info("\n=== Cleanup ===")
     # Delete the index
-    client.indexes.delete(collection_name, "tf_idf")
-    print("Deleted TF-IDF index")
+    index.delete()
+    logger.info("Deleted TF-IDF index")
 
     # Delete the collection
-    client.collections.delete(collection_name)
-    print("Deleted collection")
+    collection.delete()
+    logger.info("Deleted collection")
 
 if __name__ == "__main__":
     main() 

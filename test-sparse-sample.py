@@ -2,6 +2,14 @@
 import numpy as np
 import random
 from cosdata import Client
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def generate_random_sparse_vector(dimension: int, non_zero_dims: int = 100) -> dict:
     """Generate a random sparse vector of the specified dimension."""
@@ -32,9 +40,9 @@ def main():
     dimension = 768
     description = "Test collection for sparse vector operations"
 
-    print("\n=== Sparse Vector Collection Management ===")
+    logger.info("\n=== Sparse Vector Collection Management ===")
     # Create a new sparse collection
-    collection = client.collections.create(
+    collection = client.create_collection(
         name=collection_name,
         dimension=dimension,
         description=description,
@@ -49,29 +57,28 @@ def main():
             "enabled": False
         }
     )
-    print(f"Created sparse collection: {collection.name}")
+    logger.info(f"Created sparse collection: {collection.name}")
 
     # List all collections
-    collections = client.collections.list()
-    print("\nAll collections:")
+    collections = client.collections()
+    logger.info("\nAll collections:")
     for coll in collections:
-        print(f" - {coll.name} (sparse: {coll.sparse_vector.get('enabled')})")
+        logger.info(f" - {coll.name}")
 
-    print("\n=== Sparse Index Management ===")
+    logger.info("\n=== Sparse Index Management ===")
     # Create a sparse vector index
-    sparse_index = client.indexes.create_sparse(
-        collection_name=collection_name,
+    index = collection.create_sparse_index(
         name="sparse_index",
         quantization=64,
         sample_threshold=1000
     )
-    print(f"Created sparse index: {sparse_index.name}")
+    logger.info(f"Created sparse index: {index.name}")
 
     # Get index information
-    indexes = client.indexes.get(collection_name)
-    print(f"\nSparse index information: {indexes}")
+    index_info = collection.get_index(index.name)
+    logger.info(f"\nIndex information: {index_info}")
 
-    print("\n=== Sparse Vector Operations ===")
+    logger.info("\n=== Sparse Vector Operations ===")
     # Generate some test sparse vectors
     num_vectors = 1000
     sparse_vectors = []
@@ -84,52 +91,46 @@ def main():
             "sparse_indices": sparse_data["indices"],
             "document_id": f"doc_{i//10}"  # Group vectors into documents
         })
-    print(f"Generated {len(sparse_vectors)} test sparse vectors")
+    logger.info(f"Generated {len(sparse_vectors)} test sparse vectors")
 
     # Add sparse vectors through a transaction
-    with client.transactions.transaction(collection_name) as txn:
-        for vector in sparse_vectors:
-            txn.add_vector(
-                vector_id=vector["id"],
-                sparse_values=vector["sparse_values"],
-                sparse_indices=vector["sparse_indices"],
-                document_id=vector["document_id"]
-            )
-    print("Added sparse vectors through transaction")
+    logger.info("Starting transaction...")
+    with collection.transaction() as txn:
+        txn.batch_upsert_vectors(sparse_vectors)
+    logger.info("Added sparse vectors through transaction")
 
     # Verify vector existence
     test_vector_id = sparse_vectors[0]["id"]
-    exists = client.vectors.exists(collection_name, test_vector_id)
-    print(f"\nVector {test_vector_id} exists: {exists}")
+    exists = collection.vectors.exists(test_vector_id)
+    logger.info(f"\nVector {test_vector_id} exists: {exists}")
 
-    print("\n=== Sparse Search Operations ===")
+    logger.info("\n=== Sparse Search Operations ===")
     # Perform sparse vector search
     sparse_data = generate_random_sparse_vector(dimension)
     query_terms = [[idx, val] for idx, val in zip(sparse_data["indices"], sparse_data["values"])]
-    print(f"Query vector: {query_terms[:5]}...")  # Print first 5 terms for debugging
-    sparse_results = client.search.sparse(
-        collection_name=collection_name,
+    logger.info(f"Query vector: {query_terms[:5]}...")  # Print first 5 terms for debugging
+    sparse_results = collection.search.sparse(
         query_terms=query_terms,
         top_k=5,
         early_terminate_threshold=0.0,
         return_raw_text=True
     )
-    print(f"Sparse search results: {sparse_results}")
+    logger.info(f"Sparse search results: {sparse_results}")
 
-    print("\n=== Version Management ===")
+    logger.info("\n=== Version Management ===")
     # Get current version
-    current_version = client.versions.get_current(collection_name)
-    print(f"Current version: {current_version}")
+    current_version = collection.versions.get_current()
+    logger.info(f"Current version: {current_version}")
 
     # Cleanup
-    print("\n=== Cleanup ===")
+    logger.info("\n=== Cleanup ===")
     # Delete the index
-    client.indexes.delete(collection_name, "sparse")
-    print("Deleted sparse index")
+    index.delete()
+    logger.info("Deleted sparse index")
 
     # Delete the collection
-    client.collections.delete(collection_name)
-    print("Deleted collection")
+    collection.delete()
+    logger.info("Deleted collection")
 
 if __name__ == "__main__":
     main() 

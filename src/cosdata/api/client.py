@@ -58,7 +58,10 @@ class Client:
         self,
         name: str,
         dimension: int = 1024,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        dense_vector: Optional[Dict[str, Any]] = None,
+        sparse_vector: Optional[Dict[str, Any]] = None,
+        tf_idf_options: Optional[Dict[str, Any]] = None
     ) -> Collection:
         """
         Create a new collection.
@@ -67,6 +70,9 @@ class Client:
             name: Name of the collection
             dimension: Dimension of vectors to be stored
             description: Optional description of the collection
+            dense_vector: Optional dense vector configuration
+            sparse_vector: Optional sparse vector configuration
+            tf_idf_options: Optional TF-IDF configuration
             
         Returns:
             Collection object
@@ -77,14 +83,14 @@ class Client:
         data = {
             "name": name,
             "description": description,
-            "dense_vector": {
+            "dense_vector": dense_vector or {
                 "enabled": True,
                 "dimension": dimension
             },
-            "sparse_vector": {
+            "sparse_vector": sparse_vector or {
                 "enabled": False
             },
-            "tf_idf_options": {
+            "tf_idf_options": tf_idf_options or {
                 "enabled": False
             },
             "config": {

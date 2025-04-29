@@ -99,13 +99,19 @@ def main():
         # Generate vectors
         vectors = generate_test_vectors(num_vectors, dimension)
         
-        # Create and use transaction for upserting vectors
-        logger.info("Starting transaction...")
-        transaction = collection.create_transaction()
-        logger.info("Upserting vectors...")
-        transaction.upsert(vectors)
-        transaction.commit()
-        logger.info("Successfully upserted all vectors")
+        # Test single vector upsert
+        logger.info("Testing single vector upsert...")
+        with collection.transaction() as txn:
+            logger.info("Upserting single vector...")
+            txn.upsert_vector(vectors[0])
+        logger.info("Successfully upserted single vector")
+
+        # Test batch vector upsert
+        logger.info("Testing batch vector upsert...")
+        with collection.transaction() as txn:
+            logger.info("Upserting remaining vectors...")
+            txn.batch_upsert_vectors(vectors[1:])
+        logger.info("Successfully upserted remaining vectors")
 
         # Perform test queries
         results = perform_test_queries(collection, num_queries, dimension)

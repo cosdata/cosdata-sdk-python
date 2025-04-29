@@ -66,16 +66,22 @@ class Transaction:
         if response.status_code not in [200, 204]:
             raise Exception(f"Failed to upsert vectors: {response.text}")
     
-    def upsert(self, vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
+    def upsert_vector(self, vector: Dict[str, Any]) -> None:
         """
-        Insert or update vectors in the transaction.
+        Insert or update a single vector in the transaction.
         
         Args:
-            vectors: Single vector or list of vectors to upsert
+            vector: Vector dictionary to upsert
         """
-        if isinstance(vectors, dict):
-            vectors = [vectors]
-            
+        self._upsert_batch([vector])
+    
+    def batch_upsert_vectors(self, vectors: List[Dict[str, Any]]) -> None:
+        """
+        Insert or update multiple vectors in the transaction.
+        
+        Args:
+            vectors: List of vector dictionaries to upsert
+        """
         # Split vectors into batches of batch_size
         for i in range(0, len(vectors), self.batch_size):
             batch = vectors[i:i + self.batch_size]
@@ -154,7 +160,8 @@ class Transactions:
         
         Example:
             with client.transactions.transaction("my_collection") as txn:
-                txn.upsert(vectors)
+                txn.upsert_vector(vector)  # For single vector
+                txn.batch_upsert_vectors(vectors)  # For multiple vectors
                 # Auto-commits on exit or aborts on exception
         
         Args:
