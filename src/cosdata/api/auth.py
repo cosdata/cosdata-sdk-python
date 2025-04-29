@@ -8,19 +8,24 @@ class Auth:
     Authentication module for the Cosdata Vector Database API.
     """
     
-    def __init__(self, client, username: str, password: str):
+    def __init__(self, username: str, password: str):
         """
         Initialize the authentication module.
         
         Args:
-            client: Client instance
             username: Username for authentication
             password: Password for authentication
         """
-        self.client = client
         self.username = username
         self.password = password
         self.token: Optional[str] = None
+        self._host: Optional[str] = None
+        self._verify_ssl: Optional[bool] = None
+    
+    def set_client_info(self, host: str, verify_ssl: bool):
+        """Set client information needed for authentication."""
+        self._host = host
+        self._verify_ssl = verify_ssl
         self.login()
     
     def login(self) -> str:
@@ -30,13 +35,16 @@ class Auth:
         Returns:
             The access token string
         """
-        url = f"{self.client.host}/auth/create-session"
+        if not self._host:
+            raise Exception("Client information not set. Call set_client_info first.")
+            
+        url = f"{self._host}/auth/create-session"
         data = {"username": self.username, "password": self.password}
         response = requests.post(
             url, 
             headers=self.get_headers(), 
             data=json.dumps(data), 
-            verify=self.client.verify_ssl
+            verify=self._verify_ssl
         )
         
         if response.status_code != 200:

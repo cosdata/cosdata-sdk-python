@@ -1,19 +1,16 @@
 # client.py
-from typing import Optional
+import json
+import requests
+from typing import Optional, Dict, Any, List
+from .collections import Collection
 from .auth import Auth
-from .collections import Collections
-from .transactions import Transactions
-from .search import Search
-from .indexes import Indexes
-from .vectors import Vectors
-from .versions import Versions
 
 class Client:
     """
     Main client for interacting with the Cosdata Vector Database API.
     
-    This client provides access to all API functionality through organized modules
-    that match the API documentation structure.
+    This client provides a Pythonic, object-oriented interface for interacting with
+    the Cosdata Vector Database API.
     """
     
     def __init__(
@@ -37,15 +34,10 @@ class Client:
         self.verify_ssl = verify
         
         # Initialize authentication
-        self.auth = Auth(self, username, password)
+        self.auth = Auth(username, password)
+        self.auth.set_client_info(host, verify)
         
-        # Initialize API modules
-        self.collections = Collections(self)
-        self.transactions = Transactions(self)
-        self.search = Search(self)
-        self.indexes = Indexes(self)
-        self.vectors = Vectors(self)
-        self.versions = Versions(self)
+        self._session = None
     
     def _get_headers(self) -> dict:
         """
@@ -54,4 +46,116 @@ class Client:
         Returns:
             Dictionary of HTTP headers
         """
-        return self.auth.get_headers() 
+        return self.auth.get_headers()
+
+    def _ensure_session(self):
+        """Ensure the session is initialized."""
+        if self._session is None:
+            # Initialize session here
+            pass
+
+    def create_collection(
+        self,
+        name: str,
+        dimension: int = 1024,
+        description: Optional[str] = None
+    ) -> Collection:
+        """
+        Create a new collection.
+        
+        Args:
+            name: Name of the collection
+            dimension: Dimension of vectors to be stored
+            description: Optional description of the collection
+            
+        Returns:
+            Collection object
+        """
+        self._ensure_session()
+        
+        url = f"{self.base_url}/collections"
+        data = {
+            "name": name,
+            "description": description,
+            "dense_vector": {
+                "enabled": True,
+                "dimension": dimension
+            },
+            "sparse_vector": {
+                "enabled": False
+            },
+            "tf_idf_options": {
+                "enabled": False
+            },
+            "config": {
+                "max_vectors": None,
+                "replication_factor": None
+            },
+            "store_raw_text": False
+        }
+        
+        response = requests.post(
+            url, 
+            headers=self._get_headers(), 
+            data=json.dumps(data), 
+            verify=self.verify_ssl
+        )
+        
+        if response.status_code not in [200, 201]:
+            raise Exception(f"Failed to create collection: {response.text}")
+        
+        return Collection(self, name)
+
+    def get_collection(self, name: str) -> Collection:
+        """
+        Get an existing collection.
+        
+        Args:
+            name: Name of the collection
+            
+        Returns:
+            Collection object
+        """
+        self._ensure_session()
+        
+        url = f"{self.base_url}/collections/{name}"
+        response = requests.get(
+            url, 
+            headers=self._get_headers(), 
+            verify=self.verify_ssl
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to get collection: {response.text}")
+        
+        return Collection(self, name)
+
+    def list_collections(self) -> List[Dict[str, Any]]:
+        """
+        List all collections.
+        
+        Returns:
+            List of collection information dictionaries
+        """
+        self._ensure_session()
+        
+        url = f"{self.base_url}/collections"
+        response = requests.get(
+            url, 
+            headers=self._get_headers(), 
+            verify=self.verify_ssl
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to list collections: {response.text}")
+        
+        return response.json().get("collections", [])
+
+    def collections(self) -> List[Collection]:
+        """
+        Get all collections as Collection objects.
+        
+        Returns:
+            List of Collection objects
+        """
+        return [Collection(self, coll["name"]) for coll in self.list_collections()] 
