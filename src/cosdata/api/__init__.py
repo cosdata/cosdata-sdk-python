@@ -2,34 +2,32 @@
 Cosdata Vector Database API Client
 
 This package provides a Python client for interacting with the Cosdata Vector Database API.
-The client is organized into modules that match the API documentation structure:
+The client uses an object-oriented, chainable interface for a more intuitive experience.
 
-- Overview: Basic client setup and configuration
-- Authentication: User authentication and session management
-- Collections: Collection management operations
-- Transactions: Transaction-based vector operations
-- Search: Vector search operations
-- Indexes: Index management operations
-- Vectors: Vector retrieval and management
-- Versions: Collection version management
+The main components are:
+- Client: Main entry point for the SDK
+- Collection: Represents a collection in the database
+- Index: Represents an index in a collection
+- Transaction: Handles batch vector operations
+- Search: Provides vector search functionality
+- Vectors: Manages vector operations
+- Versions: Manages collection versions
 """
 
 from .client import Client
-from .auth import Auth
-from .collections import Collections
-from .transactions import Transactions
+from .collections import Collection
+from .indexes import Index
+from .transactions import Transaction
 from .search import Search
-from .indexes import Indexes
 from .vectors import Vectors
 from .versions import Versions
 
 __all__ = [
     'Client',
-    'Auth',
-    'Collections',
-    'Transactions',
+    'Collection',
+    'Index',
+    'Transaction',
     'Search',
-    'Indexes',
     'Vectors',
     'Versions'
 ] 

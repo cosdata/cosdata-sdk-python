@@ -21,31 +21,30 @@ class Vectors:
     Vectors module for managing vector operations.
     """
     
-    def __init__(self, client):
+    def __init__(self, collection):
         """
         Initialize the vectors module.
         
         Args:
-            client: Client instance
+            collection: Collection instance
         """
-        self.client = client
+        self.collection = collection
     
-    def get(self, collection_name: str, vector_id: str) -> Vector:
+    def get(self, vector_id: str) -> Vector:
         """
         Get a vector by its ID.
         
         Args:
-            collection_name: Name of the collection
             vector_id: ID of the vector to retrieve
             
         Returns:
             Vector object
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/vectors/{vector_id}"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/vectors/{vector_id}"
         response = requests.get(
             url, 
-            headers=self.client._get_headers(), 
-            verify=self.client.verify_ssl
+            headers=self.collection.client._get_headers(), 
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 200:
@@ -61,24 +60,23 @@ class Vectors:
             text=data.get("text")
         )
     
-    def get_by_document_id(self, collection_name: str, document_id: str) -> List[Vector]:
+    def get_by_document_id(self, document_id: str) -> List[Vector]:
         """
         Get all vectors associated with a document ID.
         
         Args:
-            collection_name: Name of the collection
             document_id: Document ID to query vectors for
             
         Returns:
             List of Vector objects
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/vectors"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/vectors"
         params = {"document_id": document_id}
         response = requests.get(
             url, 
-            headers=self.client._get_headers(),
+            headers=self.collection.client._get_headers(),
             params=params,
-            verify=self.client.verify_ssl
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 200:
@@ -97,22 +95,21 @@ class Vectors:
             for vector_data in data
         ]
     
-    def exists(self, collection_name: str, vector_id: str) -> bool:
+    def exists(self, vector_id: str) -> bool:
         """
         Check if a vector exists.
         
         Args:
-            collection_name: Name of the collection
             vector_id: ID of the vector to check
             
         Returns:
             True if the vector exists, False otherwise
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/vectors/{vector_id}"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/vectors/{vector_id}"
         response = requests.head(
             url, 
-            headers=self.client._get_headers(), 
-            verify=self.client.verify_ssl
+            headers=self.collection.client._get_headers(), 
+            verify=self.collection.client.verify_ssl
         )
         
         return response.status_code == 200 

@@ -9,17 +9,16 @@ class Transaction:
     Represents a transaction in the vector database.
     """
     
-    def __init__(self, client, collection_name: str):
+    def __init__(self, collection_or_index):
         """
         Initialize a transaction.
         
         Args:
-            client: Client instance
-            collection_name: Name of the collection
+            collection_or_index: Collection or Index instance
         """
-        self.client = client
-        self.collection_name = collection_name
-        self.transaction_id: Optional[str] = None
+        self.collection = collection_or_index if hasattr(collection_or_index, 'name') else collection_or_index.collection
+        self._vectors = []
+        self.transaction_id = None
         self.batch_size = 200  # Maximum vectors per batch
         self._create()
     
@@ -30,11 +29,11 @@ class Transaction:
         Returns:
             Transaction ID
         """
-        url = f"{self.client.base_url}/collections/{self.collection_name}/transactions"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/transactions"
         response = requests.post(
             url,
-            headers=self.client._get_headers(),
-            verify=self.client.verify_ssl
+            headers=self.collection.client._get_headers(),
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code not in [200, 201]:
@@ -54,112 +53,39 @@ class Transaction:
         if not self.transaction_id:
             self._create()
             
-        url = f"{self.client.base_url}/collections/{self.collection_name}/transactions/{self.transaction_id}/upsert"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/transactions/{self.transaction_id}/upsert"
         data = {"vectors": batch}
         
         response = requests.post(
             url,
-            headers=self.client._get_headers(),
+            headers=self.collection.client._get_headers(),
             data=json.dumps(data),
-            verify=self.client.verify_ssl
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code not in [200, 204]:
             raise Exception(f"Failed to upsert vectors: {response.text}")
     
-    def upsert(self, vectors: List[Dict[str, Any]]) -> Self:
+    def upsert_vector(self, vector: Dict[str, Any]) -> None:
         """
-        Upsert vectors into the transaction, automatically splitting into batches.
+        Insert or update a single vector in the transaction.
         
         Args:
-            vectors: List of dictionaries containing vector data
-            
-        Returns:
-            Self for method chaining
+            vector: Vector dictionary to upsert
+        """
+        self._upsert_batch([vector])
+    
+    def batch_upsert_vectors(self, vectors: List[Dict[str, Any]]) -> None:
+        """
+        Insert or update multiple vectors in the transaction.
+        
+        Args:
+            vectors: List of vector dictionaries to upsert
         """
         # Split vectors into batches of batch_size
         for i in range(0, len(vectors), self.batch_size):
             batch = vectors[i:i + self.batch_size]
             self._upsert_batch(batch)
-            
-        return self
-    
-    def add_vector(
-        self,
-        vector_id: str,
-        dense_values: Optional[List[float]] = None,
-        sparse_indices: Optional[List[int]] = None,
-        sparse_values: Optional[List[float]] = None,
-        text: Optional[str] = None,
-        document_id: Optional[str] = None
-    ) -> Self:
-        """
-        Add a single vector to the transaction.
-        
-        Args:
-            vector_id: Unique identifier for the vector
-            dense_values: Dense vector values
-            sparse_indices: Indices for sparse vector
-            sparse_values: Values for sparse vector
-            text: Text content
-            document_id: Optional document identifier
-            
-        Returns:
-            Self for method chaining
-        """
-        if not self.transaction_id:
-            self._create()
-            
-        url = f"{self.client.base_url}/collections/{self.collection_name}/transactions/{self.transaction_id}/vectors"
-        data = {
-            "id": vector_id,
-            "document_id": document_id
-        }
-        
-        if dense_values is not None:
-            data["dense_values"] = dense_values
-        if sparse_indices is not None and sparse_values is not None:
-            data["sparse_indices"] = sparse_indices
-            data["sparse_values"] = sparse_values
-        if text is not None:
-            data["text"] = text
-        
-        response = requests.post(
-            url,
-            headers=self.client._get_headers(),
-            data=json.dumps(data),
-            verify=self.client.verify_ssl
-        )
-        
-        if response.status_code not in [200, 204]:
-            raise Exception(f"Failed to add vector: {response.text}")
-            
-        return self
-    
-    def delete_vector(self, vector_id: str) -> Self:
-        """
-        Delete a vector from the transaction.
-        
-        Args:
-            vector_id: ID of the vector to delete
-            
-        Returns:
-            Self for method chaining
-        """
-        if not self.transaction_id:
-            self._create()
-            
-        url = f"{self.client.base_url}/collections/{self.collection_name}/transactions/{self.transaction_id}/vectors/{vector_id}"
-        response = requests.delete(
-            url,
-            headers=self.client._get_headers(),
-            verify=self.client.verify_ssl
-        )
-        
-        if response.status_code not in [200, 204]:
-            raise Exception(f"Failed to delete vector: {response.text}")
-            
-        return self
     
     def commit(self) -> None:
         """
@@ -168,11 +94,11 @@ class Transaction:
         if not self.transaction_id:
             raise Exception("No active transaction to commit")
             
-        url = f"{self.client.base_url}/collections/{self.collection_name}/transactions/{self.transaction_id}/commit"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/transactions/{self.transaction_id}/commit"
         response = requests.post(
             url,
-            headers=self.client._get_headers(),
-            verify=self.client.verify_ssl
+            headers=self.collection.client._get_headers(),
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code not in [200, 204]:
@@ -187,11 +113,11 @@ class Transaction:
         if not self.transaction_id:
             raise Exception("No active transaction to abort")
             
-        url = f"{self.client.base_url}/collections/{self.collection_name}/transactions/{self.transaction_id}/abort"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/transactions/{self.transaction_id}/abort"
         response = requests.post(
             url,
-            headers=self.client._get_headers(),
-            verify=self.client.verify_ssl
+            headers=self.collection.client._get_headers(),
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code not in [200, 204]:
@@ -234,7 +160,8 @@ class Transactions:
         
         Example:
             with client.transactions.transaction("my_collection") as txn:
-                txn.upsert(vectors)
+                txn.upsert_vector(vector)  # For single vector
+                txn.batch_upsert_vectors(vectors)  # For multiple vectors
                 # Auto-commits on exit or aborts on exception
         
         Args:

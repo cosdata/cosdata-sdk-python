@@ -3,6 +3,7 @@ import json
 import requests
 from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass
+from .transactions import Transaction
 
 @dataclass
 class DenseIndex:
@@ -243,6 +244,124 @@ class Indexes:
             url, 
             headers=self.client._get_headers(), 
             verify=self.client.verify_ssl
+        )
+        
+        if response.status_code != 204:
+            raise Exception(f"Failed to delete index: {response.text}")
+
+class Index:
+    """
+    Represents an index in a collection.
+    """
+    
+    def __init__(self, collection, name: str, index_type: str = "dense"):
+        """
+        Initialize an index.
+        
+        Args:
+            collection: Collection instance
+            name: Name of the index
+            index_type: Type of index ("dense" or "sparse")
+        """
+        self.collection = collection
+        self.name = name
+        self.index_type = index_type
+
+    def create_transaction(self) -> Transaction:
+        """
+        Create a new transaction.
+        
+        Returns:
+            Transaction object
+        """
+        return Transaction(self)
+
+    def transaction(self, callback) -> Any:
+        """
+        Execute operations in a transaction.
+        
+        Args:
+            callback: Function to execute in the transaction
+            
+        Returns:
+            Result of the callback function
+        """
+        txn = self.create_transaction()
+        try:
+            result = callback(txn)
+            txn.commit()
+            return result
+        except Exception as e:
+            txn.abort()
+            raise e
+
+    def query(
+        self,
+        vector: List[float],
+        nn_count: int = 5,
+        return_raw_text: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Search for similar vectors.
+        
+        Args:
+            vector: Query vector
+            nn_count: Number of nearest neighbors to return
+            return_raw_text: Whether to include raw text in results
+            
+        Returns:
+            Search results
+        """
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/dense"
+        data = {
+            "query_vector": vector,
+            "top_k": nn_count,
+            "return_raw_text": return_raw_text
+        }
+        
+        response = requests.post(
+            url, 
+            headers=self.collection.client._get_headers(), 
+            data=json.dumps(data), 
+            verify=self.collection.client.verify_ssl
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to query vectors: {response.text}")
+            
+        return response.json()
+
+    def fetch_vector(self, vector_id: Union[str, int]) -> Dict[str, Any]:
+        """
+        Fetch a specific vector by ID.
+        
+        Args:
+            vector_id: ID of the vector to fetch
+            
+        Returns:
+            Vector data
+        """
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/vectors/{vector_id}"
+        response = requests.get(
+            url, 
+            headers=self.collection.client._get_headers(), 
+            verify=self.collection.client.verify_ssl
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to fetch vector: {response.text}")
+            
+        return response.json()
+
+    def delete(self) -> None:
+        """
+        Delete this index.
+        """
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/indexes/{self.index_type}"
+        response = requests.delete(
+            url, 
+            headers=self.collection.client._get_headers(), 
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 204:

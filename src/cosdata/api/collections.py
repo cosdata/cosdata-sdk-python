@@ -1,166 +1,232 @@
 # collections.py
 import json
 import requests
-from typing import Dict, Any, List, Optional, Iterator
-from dataclasses import dataclass
+from typing import Dict, Any, List, Optional
+from contextlib import contextmanager
+from .indexes import Index
+from .search import Search
+from .vectors import Vectors
+from .versions import Versions
+from .transactions import Transaction
 
-@dataclass
 class Collection:
     """
     Represents a collection in the vector database.
     """
-    name: str
-    description: Optional[str]
-    dense_vector: Dict[str, Any]
-    sparse_vector: Dict[str, Any]
-    tf_idf_options: Dict[str, Any]
-    config: Dict[str, Any]
-    store_raw_text: bool
-
-class Collections:
-    """
-    Collections module for managing vector collections.
-    """
     
-    def __init__(self, client):
+    def __init__(self, client, name: str):
         """
-        Initialize the collections module.
+        Initialize a collection.
         
         Args:
             client: Client instance
+            name: Name of the collection
         """
         self.client = client
-    
-    def create(
-        self, 
-        name: str, 
-        dimension: int = 1024, 
-        description: Optional[str] = None,
-        dense_vector: Optional[Dict[str, Any]] = None,
-        sparse_vector: Optional[Dict[str, Any]] = None,
-        tf_idf_options: Optional[Dict[str, Any]] = None,
-        config: Optional[Dict[str, Any]] = None,
-        store_raw_text: bool = False
-    ) -> Collection:
+        self.name = name
+        self._info = None
+        self.search = Search(self)  # Initialize search module
+        self.vectors = Vectors(self)  # Initialize vectors module
+        self.versions = Versions(self)  # Initialize versions module
+
+    @contextmanager
+    def transaction(self):
         """
-        Create a new collection.
+        Create a transaction with context management.
+        
+        This allows for automatic commit on success or abort on exception.
+        
+        Example:
+            with collection.transaction() as txn:
+                txn.upsert_vector(vector)  # For single vector
+                txn.batch_upsert_vectors(vectors)  # For multiple vectors
+                # Auto-commits on exit or aborts on exception
+        
+        Yields:
+            Transaction object
+        """
+        txn = self.create_transaction()
+        try:
+            yield txn
+            txn.commit()
+        except Exception:
+            txn.abort()
+            raise
+
+    def create_index(
+        self,
+        distance_metric: str = "cosine",
+        num_layers: int = 7,
+        max_cache_size: int = 1000,
+        ef_construction: int = 512,
+        ef_search: int = 256,
+        neighbors_count: int = 32,
+        level_0_neighbors_count: int = 64
+    ) -> Index:
+        """
+        Create a new dense index for this collection.
         
         Args:
-            name: Name of the collection
-            dimension: Dimensionality of vectors to be stored
-            description: Optional description of the collection
-            dense_vector: Configuration for dense vector support
-            sparse_vector: Configuration for sparse vector support
-            tf_idf_options: Configuration for text search/BM25 support
-            config: Collection-level configuration options
-            store_raw_text: Whether to store raw text in addition to processed text
+            distance_metric: Type of distance metric (e.g., cosine, euclidean)
+            num_layers: Number of layers in the HNSW graph
+            max_cache_size: Maximum cache size
+            ef_construction: ef parameter for index construction
+            ef_search: ef parameter for search
+            neighbors_count: Number of neighbors to connect to
+            level_0_neighbors_count: Number of neighbors at level 0
             
         Returns:
-            Collection object
+            Index object
         """
-        url = f"{self.client.base_url}/collections"
+        url = f"{self.client.base_url}/collections/{self.name}/indexes/dense"
         data = {
-            "name": name,
-            "description": description,
-            "dense_vector": dense_vector or {
-                "enabled": True,
-                "dimension": dimension
+            "name": f"{self.name}_index",
+            "distance_metric_type": distance_metric,
+            "quantization": {
+                "type": "auto",
+                "properties": {
+                    "sample_threshold": 100
+                }
             },
-            "sparse_vector": sparse_vector or {
-                "enabled": False
-            },
-            "tf_idf_options": tf_idf_options or {
-                "enabled": False
-            },
-            "config": config or {
-                "max_vectors": None,
-                "replication_factor": None
-            },
-            "store_raw_text": store_raw_text
+            "index": {
+                "type": "hnsw",
+                "properties": {
+                    "num_layers": num_layers,
+                    "max_cache_size": max_cache_size,
+                    "ef_construction": ef_construction,
+                    "ef_search": ef_search,
+                    "neighbors_count": neighbors_count,
+                    "level_0_neighbors_count": level_0_neighbors_count
+                }
+            }
         }
         
         response = requests.post(
-            url, 
-            headers=self.client._get_headers(), 
-            data=json.dumps(data), 
+            url,
+            headers=self.client._get_headers(),
+            data=json.dumps(data),
             verify=self.client.verify_ssl
         )
         
         if response.status_code not in [200, 201]:
-            raise Exception(f"Failed to create collection: {response.text}")
+            raise Exception(f"Failed to create index: {response.text}")
         
-        return self.get(name)
-    
-    def get(self, name: str) -> Collection:
+        return Index(self, data["name"], "dense")
+
+    def create_sparse_index(
+        self,
+        name: str,
+        quantization: int = 64,
+        sample_threshold: int = 1000
+    ) -> Index:
         """
-        Get a collection by name.
+        Create a new sparse index for this collection.
         
         Args:
-            name: Name of the collection
+            name: Name of the index
+            quantization: Quantization bit value (16, 32, 64, 128, or 256)
+            sample_threshold: Number of vectors to sample for calibrating the index
             
         Returns:
-            Collection object
+            Index object
         """
-        url = f"{self.client.base_url}/collections/{name}"
-        response = requests.get(
-            url, 
-            headers=self.client._get_headers(), 
+        url = f"{self.client.base_url}/collections/{self.name}/indexes/sparse"
+        data = {
+            "name": name,
+            "quantization": quantization,
+            "sample_threshold": sample_threshold
+        }
+        
+        response = requests.post(
+            url,
+            headers=self.client._get_headers(),
+            data=json.dumps(data),
             verify=self.client.verify_ssl
         )
         
-        if response.status_code != 200:
-            raise Exception(f"Failed to get collection: {response.text}")
+        if response.status_code not in [200, 201]:
+            raise Exception(f"Failed to create sparse index: {response.text}")
         
-        data = response.json()
-        return Collection(
-            name=data["name"],
-            description=data.get("description"),
-            dense_vector=data["dense_vector"],
-            sparse_vector=data["sparse_vector"],
-            tf_idf_options=data["tf_idf_options"],
-            config=data["config"],
-            store_raw_text=data["store_raw_text"]
-        )
-    
-    def list(self) -> List[Collection]:
+        return Index(self, name, "sparse")
+
+    def create_tf_idf_index(
+        self,
+        name: str,
+        sample_threshold: int = 1000,
+        k1: float = 1.2,
+        b: float = 0.75
+    ) -> Index:
         """
-        List all collections.
-        
-        Returns:
-            List of Collection objects
-        """
-        url = f"{self.client.base_url}/collections"
-        response = requests.get(
-            url, 
-            headers=self.client._get_headers(), 
-            verify=self.client.verify_ssl
-        )
-        
-        if response.status_code != 200:
-            raise Exception(f"Failed to list collections: {response.text}")
-        
-        collections_data = response.json().get("collections", [])
-        return [
-            Collection(
-                name=data["name"],
-                description=data.get("description"),
-                dense_vector=data.get("dense_vector", {}),
-                sparse_vector=data.get("sparse_vector", {}),
-                tf_idf_options=data.get("tf_idf_options", {}),
-                config=data.get("config", {}),
-                store_raw_text=data.get("store_raw_text", False)
-            )
-            for data in collections_data
-        ]
-    
-    def delete(self, name: str) -> None:
-        """
-        Delete a collection.
+        Create a new TF-IDF index for this collection.
         
         Args:
-            name: Name of the collection to delete
+            name: Name of the index
+            sample_threshold: Number of documents to sample for calibrating the index
+            k1: BM25 k1 parameter that controls term frequency saturation
+            b: BM25 b parameter that controls document length normalization
+            
+        Returns:
+            Index object
         """
-        url = f"{self.client.base_url}/collections/{name}"
+        url = f"{self.client.base_url}/collections/{self.name}/indexes/tf-idf"
+        data = {
+            "name": name,
+            "sample_threshold": sample_threshold,
+            "k1": k1,
+            "b": b
+        }
+        
+        response = requests.post(
+            url,
+            headers=self.client._get_headers(),
+            data=json.dumps(data),
+            verify=self.client.verify_ssl
+        )
+        
+        if response.status_code not in [200, 201]:
+            raise Exception(f"Failed to create TF-IDF index: {response.text}")
+        
+        return Index(self, name, "tf_idf")
+
+    def get_index(self, name: str) -> Index:
+        """
+        Get an existing index.
+        
+        Args:
+            name: Name of the index
+            
+        Returns:
+            Index object
+        """
+        return Index(self, name)
+
+    def get_info(self) -> Dict[str, Any]:
+        """
+        Get collection information.
+        
+        Returns:
+            Dictionary containing collection information
+        """
+        if self._info is None:
+            url = f"{self.client.base_url}/collections/{self.name}"
+            response = requests.get(
+                url, 
+                headers=self.client._get_headers(), 
+                verify=self.client.verify_ssl
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Failed to get collection info: {response.text}")
+            
+            self._info = response.json()
+        
+        return self._info
+
+    def delete(self) -> None:
+        """
+        Delete this collection.
+        """
+        url = f"{self.client.base_url}/collections/{self.name}"
         response = requests.delete(
             url, 
             headers=self.client._get_headers(), 
@@ -169,18 +235,12 @@ class Collections:
         
         if response.status_code != 204:
             raise Exception(f"Failed to delete collection: {response.text}")
-    
-    def load(self, name: str) -> Collection:
+
+    def load(self) -> None:
         """
-        Load a collection into memory.
-        
-        Args:
-            name: Name of the collection to load
-            
-        Returns:
-            Collection object
+        Load this collection into memory.
         """
-        url = f"{self.client.base_url}/collections/{name}/load"
+        url = f"{self.client.base_url}/collections/{self.name}/load"
         response = requests.post(
             url, 
             headers=self.client._get_headers(), 
@@ -189,20 +249,12 @@ class Collections:
         
         if response.status_code != 200:
             raise Exception(f"Failed to load collection: {response.text}")
-        
-        return self.get(name)
-    
-    def unload(self, name: str) -> str:
+
+    def unload(self) -> None:
         """
-        Unload a collection from memory.
-        
-        Args:
-            name: Name of the collection to unload
-            
-        Returns:
-            Success message
+        Unload this collection from memory.
         """
-        url = f"{self.client.base_url}/collections/{name}/unload"
+        url = f"{self.client.base_url}/collections/{self.name}/unload"
         response = requests.post(
             url, 
             headers=self.client._get_headers(), 
@@ -211,5 +263,12 @@ class Collections:
         
         if response.status_code != 200:
             raise Exception(f"Failed to unload collection: {response.text}")
+
+    def create_transaction(self) -> Transaction:
+        """
+        Create a new transaction for this collection.
         
-        return response.text 
+        Returns:
+            Transaction object
+        """
+        return Transaction(self) 

@@ -8,18 +8,17 @@ class Search:
     Search module for performing vector searches.
     """
     
-    def __init__(self, client):
+    def __init__(self, collection):
         """
         Initialize the search module.
         
         Args:
-            client: Client instance
+            collection: Collection instance
         """
-        self.client = client
+        self.collection = collection
     
     def dense(
         self,
-        collection_name: str,
         query_vector: List[float],
         top_k: int = 10,
         return_raw_text: bool = False
@@ -28,7 +27,6 @@ class Search:
         Search for similar vectors using dense vector representation.
         
         Args:
-            collection_name: Name of the collection to search in
             query_vector: Vector to search for similar vectors
             top_k: Maximum number of results to return
             return_raw_text: Whether to include raw text in the response
@@ -36,7 +34,7 @@ class Search:
         Returns:
             Search results
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/search/dense"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/dense"
         data = {
             "query_vector": query_vector,
             "top_k": top_k,
@@ -45,9 +43,9 @@ class Search:
         
         response = requests.post(
             url, 
-            headers=self.client._get_headers(), 
+            headers=self.collection.client._get_headers(), 
             data=json.dumps(data), 
-            verify=self.client.verify_ssl
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 200:
@@ -57,7 +55,6 @@ class Search:
     
     def batch_dense(
         self,
-        collection_name: str,
         queries: List[Dict[str, List[float]]],
         top_k: int = 10,
         return_raw_text: bool = False
@@ -66,7 +63,6 @@ class Search:
         Perform batch search for similar vectors using dense vector representation.
         
         Args:
-            collection_name: Name of the collection to search in
             queries: List of query vectors
             top_k: Maximum number of results to return per query
             return_raw_text: Whether to include raw text in the response
@@ -74,7 +70,7 @@ class Search:
         Returns:
             List of search results
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/search/batch-dense"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/batch-dense"
         data = {
             "queries": queries,
             "top_k": top_k,
@@ -83,9 +79,9 @@ class Search:
         
         response = requests.post(
             url, 
-            headers=self.client._get_headers(), 
+            headers=self.collection.client._get_headers(), 
             data=json.dumps(data), 
-            verify=self.client.verify_ssl
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 200:
@@ -95,7 +91,6 @@ class Search:
     
     def sparse(
         self,
-        collection_name: str,
         query_terms: List[Dict[str, Union[int, float]]],
         top_k: int = 10,
         early_terminate_threshold: float = 0.0,
@@ -105,7 +100,6 @@ class Search:
         Search for similar vectors using sparse vector representation.
         
         Args:
-            collection_name: Name of the collection to search in
             query_terms: Array of sparse vector entries, each with an index and value
             top_k: Maximum number of results to return
             early_terminate_threshold: Threshold for early termination of search
@@ -114,7 +108,7 @@ class Search:
         Returns:
             Search results
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/search/sparse"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/sparse"
         data = {
             "query_terms": query_terms,
             "top_k": top_k,
@@ -124,9 +118,9 @@ class Search:
         
         response = requests.post(
             url, 
-            headers=self.client._get_headers(), 
+            headers=self.collection.client._get_headers(), 
             data=json.dumps(data), 
-            verify=self.client.verify_ssl
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 200:
@@ -136,7 +130,6 @@ class Search:
     
     def batch_sparse(
         self,
-        collection_name: str,
         query_terms_list: List[List[Dict[str, Union[int, float]]]],
         top_k: int = 10,
         early_terminate_threshold: float = 0.0,
@@ -146,7 +139,6 @@ class Search:
         Perform batch search for similar vectors using sparse vector representation.
         
         Args:
-            collection_name: Name of the collection to search in
             query_terms_list: List of sparse vector queries
             top_k: Maximum number of results to return per query
             early_terminate_threshold: Threshold for early termination of search
@@ -155,7 +147,7 @@ class Search:
         Returns:
             List of search results
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/search/batch-sparse"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/batch-sparse"
         data = {
             "query_terms_list": query_terms_list,
             "top_k": top_k,
@@ -165,9 +157,9 @@ class Search:
         
         response = requests.post(
             url, 
-            headers=self.client._get_headers(), 
+            headers=self.collection.client._get_headers(), 
             data=json.dumps(data), 
-            verify=self.client.verify_ssl
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 200:
@@ -177,7 +169,6 @@ class Search:
     
     def text(
         self,
-        collection_name: str,
         query_text: str,
         top_k: int = 10,
         return_raw_text: bool = False
@@ -186,7 +177,6 @@ class Search:
         Search for similar vectors using text search.
         
         Args:
-            collection_name: Name of the collection to search in
             query_text: Text to search for
             top_k: Maximum number of results to return
             return_raw_text: Whether to include raw text in the response
@@ -194,7 +184,7 @@ class Search:
         Returns:
             Search results
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/search/tf-idf"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/tf-idf"
         data = {
             "query": query_text,
             "top_k": top_k,
@@ -203,9 +193,9 @@ class Search:
         
         response = requests.post(
             url, 
-            headers=self.client._get_headers(), 
+            headers=self.collection.client._get_headers(), 
             data=json.dumps(data), 
-            verify=self.client.verify_ssl
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 200:
@@ -215,7 +205,6 @@ class Search:
     
     def batch_text(
         self,
-        collection_name: str,
         query_texts: List[str],
         top_k: int = 10,
         return_raw_text: bool = False
@@ -224,7 +213,6 @@ class Search:
         Perform batch search for similar vectors using text search.
         
         Args:
-            collection_name: Name of the collection to search in
             query_texts: List of text queries
             top_k: Maximum number of results to return per query
             return_raw_text: Whether to include raw text in the response
@@ -232,7 +220,7 @@ class Search:
         Returns:
             List of search results
         """
-        url = f"{self.client.base_url}/collections/{collection_name}/search/batch-text"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/batch-text"
         data = {
             "query_texts": query_texts,
             "top_k": top_k,
@@ -241,9 +229,9 @@ class Search:
         
         response = requests.post(
             url, 
-            headers=self.client._get_headers(), 
+            headers=self.collection.client._get_headers(), 
             data=json.dumps(data), 
-            verify=self.client.verify_ssl
+            verify=self.collection.client.verify_ssl
         )
         
         if response.status_code != 200:

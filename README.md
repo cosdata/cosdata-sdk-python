@@ -11,7 +11,7 @@ pip install cosdata-client
 ## Quick Start
 
 ```python
-from cosdata.client import Client  # Import the Client class
+from cosdata import Client  # Import the Client class
 
 # Initialize the client (all parameters are optional)
 client = Client(
@@ -22,20 +22,19 @@ client = Client(
 )
 
 # Create a collection
-collection = client.collections.create(
+collection = client.create_collection(
     name="my_collection",
     dimension=768,                  # Vector dimension
     description="My vector collection"
 )
 
 # Create an index (all parameters are optional)
-index = client.indexes.create(
-    collection_name="my_collection",
+index = collection.create_index(
     distance_metric="cosine",       # Default: cosine
-    num_layers=10,                   # Default: 10
+    num_layers=10,                  # Default: 10
     max_cache_size=1000,            # Default: 1000
     ef_construction=128,            # Default: 128
-    ef_search=64,                  # Default: 64
+    ef_search=64,                   # Default: 64
     neighbors_count=32,             # Default: 32
     level_0_neighbors_count=64      # Default: 64
 )
@@ -46,8 +45,9 @@ import numpy as np
 def generate_random_vector(id: int, dimension: int) -> dict:
     values = np.random.uniform(-1, 1, dimension).tolist()
     return {
-        "id": id,
-        "values": values,
+        "id": f"vec_{id}",
+        "dense_values": values,
+        "document_id": f"doc_{id//10}",  # Group vectors into documents
         "metadata": {  # Optional metadata
             "created_at": "2024-03-20",
             "category": "example"
@@ -58,36 +58,34 @@ def generate_random_vector(id: int, dimension: int) -> dict:
 vectors = [generate_random_vector(i, 768) for i in range(100)]
 
 # Add vectors using a transaction
-with client.transactions.create() as txn:
-    txn.upsert("my_collection", vectors)
+with collection.transaction() as txn:
+    # Single vector upsert
+    txn.upsert_vector(vectors[0])
+    # Batch upsert for remaining vectors
+    txn.batch_upsert_vectors(vectors[1:])
 
 # Search for similar vectors
-results = client.search.query(
-    collection_name="my_collection",
-    vector=vectors[0]["values"],  # Use first vector as query
-    nn_count=5                    # Number of nearest neighbors
+results = collection.search.dense(
+    query_vector=vectors[0]["dense_values"],  # Use first vector as query
+    top_k=5,                                  # Number of nearest neighbors
+    return_raw_text=True
 )
 
 # Fetch a specific vector
-vector = client.vectors.fetch(
-    collection_name="my_collection",
-    vector_id="1"
-)
+vector = collection.vectors.get("vec_1")
 
 # Get collection information
-collection_info = client.collections.get("my_collection")
+collection_info = collection.get_info()
 print(f"Collection info: {collection_info}")
 
 # List all collections
 print("Available collections:")
-for coll in client.collections.list():
-    print(f" - {coll['name']} (dimension: {coll['dimension']})")
+for coll in client.collections():
+    print(f" - {coll.name}")
 
 # Version management
-version = client.versions.create(
-    collection_name="my_collection",
-    description="New version with updated vectors"
-)
+current_version = collection.versions.get_current()
+print(f"Current version: {current_version}")
 ```
 
 ## API Reference
@@ -105,55 +103,94 @@ client = Client(
 )
 ```
 
-The client provides access to the following modules:
-- `collections`: Collection management
-- `transactions`: Batch vector operations
-- `search`: Vector similarity search
-- `indexes`: Index management
-- `vectors`: Vector operations
-- `versions`: Version management
+Methods:
+- `create_collection(name: str, dimension: int = 1024, description: Optional[str] = None, dense_vector: Optional[Dict[str, Any]] = None, sparse_vector: Optional[Dict[str, Any]] = None, tf_idf_options: Optional[Dict[str, Any]] = None) -> Collection`
+- `collections() -> List[Collection]`
+- `get_collection(name: str) -> Collection`
 
-### Collections
+### Collection
+
+The Collection class provides access to all collection-specific operations.
+
+```python
+collection = client.create_collection(
+    name="my_collection",
+    dimension=768,
+    description="My collection"
+)
+```
 
 Methods:
-- `create(name: str, dimension: int = 1024, description: Optional[str] = None) -> Dict[str, Any]`
-- `get(collection_name: str) -> Dict[str, Any]`
-- `list() -> List[Dict[str, Any]]`
-- `delete(collection_name: str) -> None`
+- `create_index(distance_metric: str = "cosine", num_layers: int = 7, max_cache_size: int = 1000, ef_construction: int = 512, ef_search: int = 256, neighbors_count: int = 32, level_0_neighbors_count: int = 64) -> Index`
+- `create_sparse_index(name: str, quantization: int = 64, sample_threshold: int = 1000) -> Index`
+- `create_tf_idf_index(name: str, sample_threshold: int = 1000, k1: float = 1.2, b: float = 0.75) -> Index`
+- `get_index(name: str) -> Index`
+- `get_info() -> Dict[str, Any]`
+- `delete() -> None`
+- `load() -> None`
+- `unload() -> None`
+- `transaction() -> Transaction` (context manager)
 
-### Transactions
+### Transaction
+
+The Transaction class provides methods for vector operations.
+
+```python
+with collection.transaction() as txn:
+    txn.upsert_vector(vector)  # Single vector
+    txn.batch_upsert_vectors(vectors)  # Multiple vectors
+```
 
 Methods:
-- `create() -> Transaction`
-- `commit(transaction_id: str) -> Dict[str, Any]`
-- `abort(transaction_id: str) -> None`
+- `upsert_vector(vector: Dict[str, Any]) -> None`
+- `batch_upsert_vectors(vectors: List[Dict[str, Any]]) -> None`
+- `commit() -> None`
+- `abort() -> None`
 
 ### Search
 
-Methods:
-- `query(collection_name: str, vector: List[float], nn_count: int = 5) -> Dict[str, Any]`
-- `query_sparse(collection_name: str, vector: Dict[str, float], nn_count: int = 5) -> Dict[str, Any]`
+The Search class provides methods for vector similarity search.
 
-### Indexes
+```python
+results = collection.search.dense(
+    query_vector=vector,
+    top_k=5,
+    return_raw_text=True
+)
+```
 
 Methods:
-- `create(collection_name: str, distance_metric: str = "cosine", ...) -> Dict[str, Any]`
-- `get(collection_name: str) -> Dict[str, Any]`
-- `delete(collection_name: str) -> None`
+- `dense(query_vector: List[float], top_k: int = 5, return_raw_text: bool = False) -> Dict[str, Any]`
+- `sparse(query_terms: List[List[float]], top_k: int = 5, early_terminate_threshold: float = 0.0, return_raw_text: bool = False) -> Dict[str, Any]`
+- `text(query_text: str, top_k: int = 5, return_raw_text: bool = False) -> Dict[str, Any]`
 
 ### Vectors
 
+The Vectors class provides methods for vector operations.
+
+```python
+vector = collection.vectors.get("vec_1")
+exists = collection.vectors.exists("vec_1")
+```
+
 Methods:
-- `fetch(collection_name: str, vector_id: Union[str, int]) -> Dict[str, Any]`
-- `delete(collection_name: str, vector_id: Union[str, int]) -> None`
+- `get(vector_id: str) -> Dict[str, Any]`
+- `get_by_document_id(document_id: str) -> List[Dict[str, Any]]`
+- `exists(vector_id: str) -> bool`
 
 ### Versions
 
+The Versions class provides methods for version management.
+
+```python
+current_version = collection.versions.get_current()
+all_versions = collection.versions.list()
+```
+
 Methods:
-- `create(collection_name: str, description: Optional[str] = None) -> Dict[str, Any]`
-- `get(collection_name: str, version_id: str) -> Dict[str, Any]`
-- `list(collection_name: str) -> List[Dict[str, Any]]`
-- `delete(collection_name: str, version_id: str) -> None`
+- `list() -> List[Dict[str, Any]]`
+- `get_current() -> Dict[str, Any]`
+- `get(version_hash: str) -> Dict[str, Any]`
 
 ## Best Practices
 
