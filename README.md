@@ -104,9 +104,21 @@ client = Client(
 ```
 
 Methods:
-- `create_collection(name: str, dimension: int = 1024, description: Optional[str] = None, dense_vector: Optional[Dict[str, Any]] = None, sparse_vector: Optional[Dict[str, Any]] = None, tf_idf_options: Optional[Dict[str, Any]] = None) -> Collection`
+- `create_collection(...) -> Collection`
+  - Returns a `Collection` object. Collection info can be accessed via `collection.get_info()`:
+    ```python
+    {
+      "name": str,
+      "description": str,
+      "dense_vector": {"enabled": bool, "dimension": int},
+      "sparse_vector": {"enabled": bool},
+      "tf_idf_options": {"enabled": bool}
+    }
+    ```
 - `collections() -> List[Collection]`
+  - Returns a list of `Collection` objects.
 - `get_collection(name: str) -> Collection`
+  - Returns a `Collection` object for the given name.
 
 ### Collection
 
@@ -121,11 +133,20 @@ collection = client.create_collection(
 ```
 
 Methods:
-- `create_index(distance_metric: str = "cosine", num_layers: int = 7, max_cache_size: int = 1000, ef_construction: int = 512, ef_search: int = 256, neighbors_count: int = 32, level_0_neighbors_count: int = 64) -> Index`
-- `create_sparse_index(name: str, quantization: int = 64, sample_threshold: int = 1000) -> Index`
-- `create_tf_idf_index(name: str, sample_threshold: int = 1000, k1: float = 1.2, b: float = 0.75) -> Index`
+- `create_index(...) -> Index`
+  - Returns an `Index` object. Index info can be fetched (if implemented) as:
+    ```python
+    {
+      "dense": {...},
+      "sparse": {...},
+      "tf-idf": {...}
+    }
+    ```
+- `create_sparse_index(...) -> Index`
+- `create_tf_idf_index(...) -> Index`
 - `get_index(name: str) -> Index`
-- `get_info() -> Dict[str, Any]`
+- `get_info() -> dict`
+  - Returns collection metadata as above.
 - `delete() -> None`
 - `load() -> None`
 - `unload() -> None`
@@ -160,9 +181,25 @@ results = collection.search.dense(
 ```
 
 Methods:
-- `dense(query_vector: List[float], top_k: int = 5, return_raw_text: bool = False) -> Dict[str, Any]`
-- `sparse(query_terms: List[List[float]], top_k: int = 5, early_terminate_threshold: float = 0.0, return_raw_text: bool = False) -> Dict[str, Any]`
-- `text(query_text: str, top_k: int = 5, return_raw_text: bool = False) -> Dict[str, Any]`
+- `dense(query_vector: List[float], top_k: int = 5, return_raw_text: bool = False) -> dict`
+  - Returns:
+    ```python
+    {
+      "results": [
+        {
+          "id": str,
+          "document_id": str,
+          "score": float,
+          "text": str | None
+        },
+        ...
+      ]
+    }
+    ```
+- `sparse(query_terms: List[dict], top_k: int = 5, early_terminate_threshold: float = 0.0, return_raw_text: bool = False) -> dict`
+  - Same structure as above.
+- `text(query_text: str, top_k: int = 5, return_raw_text: bool = False) -> dict`
+  - Same structure as above.
 
 ### Vectors
 
@@ -174,9 +211,20 @@ exists = collection.vectors.exists("vec_1")
 ```
 
 Methods:
-- `get(vector_id: str) -> Dict[str, Any]`
-- `get_by_document_id(document_id: str) -> List[Dict[str, Any]]`
+- `get(vector_id: str) -> Vector`
+  - Returns a `Vector` dataclass object with attributes:
+    ```python
+    vector.id: str
+    vector.document_id: Optional[str]
+    vector.dense_values: Optional[List[float]]
+    vector.sparse_indices: Optional[List[int]]
+    vector.sparse_values: Optional[List[float]]
+    vector.text: Optional[str]
+    ```
+- `get_by_document_id(document_id: str) -> List[Vector]`
+  - Returns a list of `Vector` objects as above.
 - `exists(vector_id: str) -> bool`
+  - Returns `True` if the vector exists, else `False`.
 
 ### Versions
 
@@ -188,9 +236,33 @@ all_versions = collection.versions.list()
 ```
 
 Methods:
-- `list() -> List[Dict[str, Any]]`
-- `get_current() -> Dict[str, Any]`
-- `get(version_hash: str) -> Dict[str, Any]`
+- `list() -> dict`
+  - Returns:
+    ```python
+    {
+      "versions": [
+        {
+          "hash": str,
+          "version_number": int,
+          "timestamp": int,
+          "vector_count": int
+        },
+        ...
+      ],
+      "current_hash": str
+    }
+    ```
+- `get_current() -> Version`
+  - Returns a `Version` dataclass object with attributes:
+    ```python
+    version.hash: str
+    version.version_number: int
+    version.timestamp: int
+    version.vector_count: int
+    version.created_at: datetime  # property for creation time
+    ```
+- `get(version_hash: str) -> Version`
+  - Same as above.
 
 ## Best Practices
 
