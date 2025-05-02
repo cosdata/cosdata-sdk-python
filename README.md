@@ -62,7 +62,7 @@ with collection.transaction() as txn:
     # Single vector upsert
     txn.upsert_vector(vectors[0])
     # Batch upsert for remaining vectors
-    txn.batch_upsert_vectors(vectors[1:])
+    txn.batch_upsert_vectors(vectors[1:], max_workers=8, max_retries=3)
 
 # Search for similar vectors
 results = collection.search.dense(
@@ -159,12 +159,15 @@ The Transaction class provides methods for vector operations.
 ```python
 with collection.transaction() as txn:
     txn.upsert_vector(vector)  # Single vector
-    txn.batch_upsert_vectors(vectors)  # Multiple vectors
+    txn.batch_upsert_vectors(vectors, max_workers=8, max_retries=3)  # Multiple vectors, with parallelism and retries
 ```
 
 Methods:
 - `upsert_vector(vector: Dict[str, Any]) -> None`
-- `batch_upsert_vectors(vectors: List[Dict[str, Any]]) -> None`
+- `batch_upsert_vectors(vectors: List[Dict[str, Any]], max_workers: Optional[int] = None, max_retries: int = 3) -> None`
+  - `vectors`: List of vector dictionaries to upsert
+  - `max_workers`: Number of threads to use for parallel upserts (default: all available CPU threads)
+  - `max_retries`: Number of times to retry a failed batch (default: 3)
 - `commit() -> None`
 - `abort() -> None`
 

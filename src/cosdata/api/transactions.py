@@ -3,6 +3,9 @@ import json
 import requests
 from typing import Dict, Any, List, Optional, Union, Self
 from contextlib import contextmanager
+import concurrent.futures
+import os
+import time
 
 class Transaction:
     """
@@ -75,17 +78,42 @@ class Transaction:
         """
         self._upsert_batch([vector])
     
-    def batch_upsert_vectors(self, vectors: List[Dict[str, Any]]) -> None:
+    def batch_upsert_vectors(self, vectors: List[Dict[str, Any]], max_workers: Optional[int] = None, max_retries: int = 3) -> None:
         """
-        Insert or update multiple vectors in the transaction.
-        
+        Insert or update multiple vectors in the transaction, using multi-threading and retry logic.
+
         Args:
             vectors: List of vector dictionaries to upsert
+            max_workers: Number of threads to use (default: all available CPU threads)
+            max_retries: Number of times to retry a failed batch (default: 3)
         """
         # Split vectors into batches of batch_size
-        for i in range(0, len(vectors), self.batch_size):
-            batch = vectors[i:i + self.batch_size]
-            self._upsert_batch(batch)
+        batches = [vectors[i:i + self.batch_size] for i in range(0, len(vectors), self.batch_size)]
+        exceptions = []
+        if max_workers is None:
+            max_workers = os.cpu_count() or 4
+        def upsert_with_retries(batch, batch_idx):
+            last_exc = None
+            for attempt in range(1, max_retries + 1):
+                try:
+                    self._upsert_batch(batch)
+                    return  # Success
+                except Exception as exc:
+                    last_exc = exc
+                    time.sleep(0.5 * attempt)  # Exponential backoff
+            raise Exception(f"Batch {batch_idx} failed after {max_retries} retries: {last_exc}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {executor.submit(upsert_with_retries, batch, idx): idx for idx, batch in enumerate(batches)}
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    exceptions.append(exc)
+
+        if exceptions:
+            raise Exception(f"One or more batches failed: {exceptions}")
     
     def commit(self) -> None:
         """

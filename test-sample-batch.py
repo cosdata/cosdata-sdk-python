@@ -4,6 +4,7 @@ from cosdata import Client
 import sys
 import logging
 from typing import List, Dict, Any
+import time  # Timer import (safe to re-import in function scope)
 
 # Configure logging
 logging.basicConfig(
@@ -89,7 +90,7 @@ def main():
         # Configuration
         collection_name = "test_batch_collection"
         dimension = 768
-        num_vectors = 10000
+        num_vectors = 50000
         num_queries = 3
 
         # Create collection and index
@@ -110,7 +111,11 @@ def main():
         logger.info("Testing batch vector upsert...")
         with collection.transaction() as txn:
             logger.info("Upserting remaining vectors...")
-            txn.batch_upsert_vectors(vectors[1:])
+            start_time = time.time()
+            txn.batch_upsert_vectors(vectors[1:], max_workers=8)
+            end_time = time.time()
+            elapsed = end_time - start_time
+            logger.info(f"batch_upsert_vectors took {elapsed:.2f} seconds.")
         logger.info("Successfully upserted remaining vectors")
 
         # Perform test queries
