@@ -88,6 +88,37 @@ current_version = collection.versions.get_current()
 print(f"Current version: {current_version}")
 ```
 
+## 🧩 Embedding Generation (Optional Convenience Feature)
+
+Cosdata SDK provides a convenience utility for generating embeddings using [cosdata-fastembed](https://github.com/cosdata/cosdata-fastembed). This is optional—if you already have your own embeddings, you can use those directly. If you want to generate embeddings in Python, you can use the following utility:
+
+```python
+from cosdata.embedding import embed_texts
+
+texts = [
+    "Cosdata makes vector search easy!",
+    "This is a test of the embedding utility."
+]
+embeddings = embed_texts(texts, model_name="thenlper/gte-base")  # Specify any supported model
+```
+
+- See the [cosdata-fastembed supported models list](https://github.com/cosdata/cosdata-fastembed#supported-models) for available model names and dimensions.
+- The output is a list of lists (one embedding per input text), ready to upsert into your collection.
+- If `cosdata-fastembed` is not installed, a helpful error will be raised.
+
+## Methods
+
+### embed_texts
+
+- `embed_texts(texts: List[str], model_name: str = "BAAI/bge-small-en-v1.5") -> List[List[float]]`
+  - Generates embeddings for a list of texts using cosdata-fastembed. Returns a list of embedding vectors (as plain Python lists). Raises ImportError if cosdata-fastembed is not installed.
+
+  Example:
+  ```python
+  from cosdata.embedding import embed_texts
+  embeddings = embed_texts(["hello world"], model_name="thenlper/gte-base")
+  ```
+
 ## API Reference
 
 ### Client
