@@ -2,14 +2,14 @@ import json
 import requests
 from typing import Dict, Any, List, Union
 
-class SyncTransactions:
+class StreamingTransactions:
     """
-    Synchronous transactions module for managing vector operations with immediate execution.
+    Streaming transactions module for managing vector operations with immediate execution.
     """
     
     def __init__(self, client):
         """
-        Initialize the sync transactions module.
+        Initialize the streaming transactions module.
         
         Args:
             client: Client instance
@@ -18,7 +18,7 @@ class SyncTransactions:
     
     def stream_upsert(self, collection_name: str, vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]:
         """
-        Upsert vectors in a collection using streaming sync transaction.
+        Upsert vectors in a collection using streaming transaction.
         Returns immediately with the result.
         
         Args:
@@ -49,7 +49,7 @@ class SyncTransactions:
     
     def stream_delete(self, collection_name: str, vector_id: str) -> Dict[str, Any]:
         """
-        Delete a vector from a collection using streaming sync transaction.
+        Delete a vector from a collection using streaming transaction.
         Returns immediately with the result.
         
         Args:

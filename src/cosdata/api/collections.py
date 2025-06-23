@@ -275,14 +275,14 @@ class Collection:
     
     def stream_upsert(self, vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]:
         """
-        Upsert vectors in this collection using streaming sync transaction.
+        Upsert vectors in this collection using streaming transaction.
         Returns immediately with the result.
         """
         return self.client.sync_transactions.stream_upsert(self.name, vectors)
 
     def stream_delete(self, vector_id: str) -> Dict[str, Any]:
         """
-        Delete a vector from this collection using streaming sync transaction.
+        Delete a vector from this collection using streaming transaction.
         Returns immediately with the result.
         """
         return self.client.sync_transactions.stream_delete(self.name, vector_id) 

@@ -4,7 +4,7 @@ import requests
 from typing import Optional, Dict, Any, List
 from .collections import Collection
 from .auth import Auth
-from .sync_transactions import SyncTransactions
+from .sync_transactions import StreamingTransactions
 
 class Client:
     """
@@ -38,8 +38,8 @@ class Client:
         self.auth = Auth(username, password)
         self.auth.set_client_info(host, verify)
         
-        # Initialize sync transactions module
-        self.sync_transactions = SyncTransactions(self)
+        # Initialize streaming transactions module
+        self.sync_transactions = StreamingTransactions(self)
         
         self._session = None
     

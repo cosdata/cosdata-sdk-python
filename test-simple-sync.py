@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for simple sync transaction methods.
+Test script for simple streaming transaction methods.
 """
 
 import logging
@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def test_simple_sync_methods():
-    """Test simple sync transaction methods."""
+    """Test simple streaming transaction methods."""
     
     # Initialize client
     client = Client(
