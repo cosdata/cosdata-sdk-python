@@ -64,6 +64,23 @@ with collection.transaction() as txn:
     # Batch upsert for remaining vectors
     txn.batch_upsert_vectors(vectors[1:], max_workers=8, max_retries=3)
 
+# Add vectors using simple sync operations (immediate availability)
+# Single vector upsert - returns immediately with result
+result = collection.sync_upsert(vectors[0])
+print(f"Sync upsert result: {result}")
+
+# Multiple vectors upsert - returns immediately with result
+result = collection.sync_upsert(vectors[1:])
+print(f"Sync batch upsert result: {result}")
+
+# Delete vectors using sync operations
+result = collection.sync_delete("vector-1")
+print(f"Sync delete result: {result}")
+
+# Delete multiple vectors
+result = collection.sync_delete(["vector-2", "vector-3"])
+print(f"Sync batch delete result: {result}")
+
 # Search for similar vectors
 results = collection.search.dense(
     query_vector=vectors[0]["dense_values"],  # Use first vector as query
@@ -201,6 +218,54 @@ Methods:
   - `max_retries`: Number of times to retry a failed batch (default: 3)
 - `commit() -> None`
 - `abort() -> None`
+
+### Sync Operations (Implicit Transactions)
+
+The sync operations provide immediate vector availability optimized for streaming scenarios. These methods use implicit transactions that prioritize data availability over batch processing efficiency.
+
+**Design Philosophy:**
+- **Optimized for streaming scenarios** where individual records must become immediately searchable
+- **Serves real-time monitoring systems, live content feeds, and streaming analytics**
+- **Prioritizes data availability over batch processing efficiency**
+- **Automatic transaction management** - no client-managed transaction boundaries
+- **System automatically handles batching and version allocation**
+- **Abstracts transactional complexity while preserving append-only semantics**
+
+```python
+# Single vector sync upsert - immediately available for search
+vector = {
+    "id": "vector-1",
+    "document_id": "doc-123",
+    "dense_values": [0.1, 0.2, 0.3, 0.4, 0.5],
+    "metadata": {"category": "technology"},
+    "text": "Sample text content"
+}
+result = collection.sync_upsert(vector)
+print(f"Vector immediately available: {result}")
+
+# Multiple vectors sync upsert
+vectors = [vector1, vector2, vector3]
+result = collection.stream_upsert(vectors)
+print(f"All vectors immediately available: {result}")
+
+# Single vector sync delete
+result = collection.stream_delete("vector-1")
+print(f"Vector immediately deleted: {result}")
+
+# Multiple vectors sync delete
+result = collection.sync_delete(["vector-2", "vector-3"])
+print(f"Vectors immediately deleted: {result}")
+```
+
+Methods:
+- `sync_upsert(vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]`
+  - Upsert vectors with immediate availability
+  - Returns response data immediately
+  - Accepts single vector dict or list of vector dicts
+- `sync_delete(vector_ids: Union[str, List[str]]) -> Dict[str, Any]`
+  - Delete vectors with immediate effect
+  - Returns response data immediately
+  - Accepts single vector ID or list of vector IDs
 
 ### Search
 

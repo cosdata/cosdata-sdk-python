@@ -4,6 +4,7 @@ import requests
 from typing import Optional, Dict, Any, List
 from .collections import Collection
 from .auth import Auth
+from .sync_transactions import SyncTransactions
 
 class Client:
     """
@@ -36,6 +37,9 @@ class Client:
         # Initialize authentication
         self.auth = Auth(username, password)
         self.auth.set_client_info(host, verify)
+        
+        # Initialize sync transactions module
+        self.sync_transactions = SyncTransactions(self)
         
         self._session = None
     
