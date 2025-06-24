@@ -64,6 +64,19 @@ with collection.transaction() as txn:
     # Batch upsert for remaining vectors
     txn.batch_upsert_vectors(vectors[1:], max_workers=8, max_retries=3)
 
+# Add vectors using streaming operations (immediate availability)
+# Single vector upsert - returns immediately with result
+result = collection.stream_upsert(vectors[0])
+print(f"Stream upsert result: {result}")
+
+# Multiple vectors upsert - returns immediately with result
+result = collection.stream_upsert(vectors[1:])
+print(f"Stream batch upsert result: {result}")
+
+# Delete vectors using streaming operations
+result = collection.stream_delete("vector-1")
+print(f"Stream delete result: {result}")
+
 # Search for similar vectors
 results = collection.search.dense(
     query_vector=vectors[0]["dense_values"],  # Use first vector as query
@@ -201,6 +214,50 @@ Methods:
   - `max_retries`: Number of times to retry a failed batch (default: 3)
 - `commit() -> None`
 - `abort() -> None`
+
+### Streaming Operations (Implicit Transactions)
+
+The streaming operations provide immediate vector availability optimized for streaming scenarios. These methods use implicit transactions that prioritize data availability over batch processing efficiency.
+
+**Design Philosophy:**
+- **Optimized for streaming scenarios** where individual records must become immediately searchable
+- **Serves real-time monitoring systems, live content feeds, and streaming analytics**
+- **Prioritizes data availability over batch processing efficiency**
+- **Automatic transaction management** - no client-managed transaction boundaries
+- **System automatically handles batching and version allocation**
+- **Abstracts transactional complexity while preserving append-only semantics**
+
+```python
+# Single vector stream upsert - immediately available for search
+vector = {
+    "id": "vector-1",
+    "document_id": "doc-123",
+    "dense_values": [0.1, 0.2, 0.3, 0.4, 0.5],
+    "metadata": {"category": "technology"},
+    "text": "Sample text content"
+}
+result = collection.stream_upsert(vector)
+print(f"Vector immediately available: {result}")
+
+# Multiple vectors stream upsert
+vectors = [vector1, vector2, vector3]
+result = collection.stream_upsert(vectors)
+print(f"All vectors immediately available: {result}")
+
+# Single vector stream delete
+result = collection.stream_delete("vector-1")
+print(f"Vector immediately deleted: {result}")
+```
+
+Methods:
+- `stream_upsert(vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]`
+  - Upsert vectors with immediate availability
+  - Returns response data immediately
+  - Accepts single vector dict or list of vector dicts
+- `stream_delete(vector_id: str) -> Dict[str, Any]`
+  - Delete a vector with immediate effect
+  - Returns response data immediately
+  - Accepts single vector ID
 
 ### Search
 

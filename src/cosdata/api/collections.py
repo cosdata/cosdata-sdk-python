@@ -1,7 +1,7 @@
 # collections.py
 import json
 import requests
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from contextlib import contextmanager
 from .indexes import Index
 from .search import Search
@@ -271,4 +271,45 @@ class Collection:
         Returns:
             Transaction object
         """
-        return Transaction(self) 
+        return Transaction(self)
+    
+    def stream_upsert(self, vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]:
+        """
+        Upsert vectors in this collection using streaming transaction.
+        Returns immediately with the result.
+        """
+        # Ensure vectors is a list
+        if isinstance(vectors, dict):
+            vectors = [vectors]
+        
+        url = f"{self.client.base_url}/collections/{self.name}/streaming/upsert"
+        data = {"vectors": vectors}
+        
+        response = requests.post(
+            url,
+            headers=self.client._get_headers(),
+            data=json.dumps(data),
+            verify=self.client.verify_ssl
+        )
+        
+        if response.status_code not in [200, 201, 204]:
+            raise Exception(f"Failed to streaming upsert vectors: {response.text}")
+        
+        return response.json() if response.content else {}
+
+    def stream_delete(self, vector_id: str) -> Dict[str, Any]:
+        """
+        Delete a vector from this collection using streaming transaction.
+        Returns immediately with the result.
+        """
+        url = f"{self.client.base_url}/collections/{self.name}/streaming/vectors/{vector_id}"
+        response = requests.delete(
+            url,
+            headers=self.client._get_headers(),
+            verify=self.client.verify_ssl
+        )
+        
+        if response.status_code not in [200, 201, 204]:
+            raise Exception(f"Failed to streaming delete vector: {response.text}")
+        
+        return response.json() if response.content else {} 
