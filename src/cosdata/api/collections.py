@@ -278,11 +278,38 @@ class Collection:
         Upsert vectors in this collection using streaming transaction.
         Returns immediately with the result.
         """
-        return self.client.sync_transactions.stream_upsert(self.name, vectors)
+        # Ensure vectors is a list
+        if isinstance(vectors, dict):
+            vectors = [vectors]
+        
+        url = f"{self.client.base_url}/collections/{self.name}/streaming/upsert"
+        data = {"vectors": vectors}
+        
+        response = requests.post(
+            url,
+            headers=self.client._get_headers(),
+            data=json.dumps(data),
+            verify=self.client.verify_ssl
+        )
+        
+        if response.status_code not in [200, 201, 204]:
+            raise Exception(f"Failed to streaming upsert vectors: {response.text}")
+        
+        return response.json() if response.content else {}
 
     def stream_delete(self, vector_id: str) -> Dict[str, Any]:
         """
         Delete a vector from this collection using streaming transaction.
         Returns immediately with the result.
         """
-        return self.client.sync_transactions.stream_delete(self.name, vector_id) 
+        url = f"{self.client.base_url}/collections/{self.name}/streaming/vectors/{vector_id}"
+        response = requests.delete(
+            url,
+            headers=self.client._get_headers(),
+            verify=self.client.verify_ssl
+        )
+        
+        if response.status_code not in [200, 201, 204]:
+            raise Exception(f"Failed to streaming delete vector: {response.text}")
+        
+        return response.json() if response.content else {} 
