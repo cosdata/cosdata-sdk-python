@@ -271,7 +271,7 @@ class Collection:
         Returns:
             Transaction object
         """
-        return Transaction(self)
+        return Transaction(self) 
     
     def stream_upsert(self, vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]:
         """
