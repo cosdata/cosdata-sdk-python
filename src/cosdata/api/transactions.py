@@ -204,4 +204,65 @@ class Transactions:
             txn.commit()
         except Exception:
             txn.abort()
-            raise 
+            raise
+    
+    def get_status(self, collection_name: str, transaction_id: str) -> str:
+        """
+        Get the status of a transaction.
+        
+        Args:
+            collection_name: Name of the collection
+            transaction_id: ID of the transaction to check
+            
+        Returns:
+            Transaction status string
+        """
+        url = f"{self.client.base_url}/collections/{collection_name}/transactions/{transaction_id}/status"
+        response = requests.get(
+            url,
+            headers=self.client._get_headers(),
+            verify=self.client.verify_ssl
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to get transaction status: {response.text}")
+        
+        result = response.json()
+        return result['status']
+    
+    def poll_completion(self, collection_name: str, transaction_id: str, target_status: str = 'complete', 
+                       max_attempts: int = 10, sleep_interval: float = 1.0) -> tuple[str, bool]:
+        """
+        Poll transaction status until it reaches the target status or max attempts are exceeded.
+        
+        Args:
+            collection_name: Name of the collection
+            transaction_id: Transaction ID to poll
+            target_status: Target status to wait for (default: 'complete')
+            max_attempts: Maximum number of polling attempts
+            sleep_interval: Time to sleep between attempts in seconds
+        
+        Returns:
+            tuple: (final_status, success_boolean)
+        """
+        for attempt in range(max_attempts):
+            try:
+                print(f"Attempt {attempt + 1}: Waiting for transaction {transaction_id} to complete...")
+                
+                # Get actual transaction status
+                status = self.get_status(collection_name, transaction_id)
+                
+                if status == target_status:
+                    print(f"Transaction {transaction_id} completed successfully")
+                    return status, True
+                
+                if attempt < max_attempts - 1:
+                    time.sleep(sleep_interval)
+                    
+            except Exception as e:
+                print(f"Error polling transaction status: {e}")
+                if attempt < max_attempts - 1:
+                    time.sleep(sleep_interval)
+        
+        print(f"Transaction {transaction_id} may not have completed within {max_attempts} attempts")
+        return "unknown", False 
