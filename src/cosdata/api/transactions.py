@@ -153,55 +153,67 @@ class Transaction:
             
         self.transaction_id = None
 
-class Transactions:
-    """
-    Transactions module for managing vector transactions.
-    """
-    
-    def __init__(self, client):
+    def get_status(self, collection_name: str = None, transaction_id: str = None) -> str:
         """
-        Initialize the transactions module.
+        Get the status of this transaction (or another, if specified).
         
         Args:
-            client: Client instance
-        """
-        self.client = client
-    
-    def create(self, collection_name: str) -> Transaction:
-        """
-        Create a new transaction for a collection.
-        
-        Args:
-            collection_name: Name of the collection
+            collection_name: Name of the collection (default: this transaction's collection)
+            transaction_id: ID of the transaction to check (default: this transaction's ID)
             
         Returns:
-            Transaction object
+            Transaction status string
         """
-        return Transaction(self.client, collection_name)
-    
-    @contextmanager
-    def transaction(self, collection_name: str):
+        collection_name = collection_name or self.collection.name
+        transaction_id = transaction_id or self.transaction_id
+        url = f"{self.collection.client.base_url}/collections/{collection_name}/transactions/{transaction_id}/status"
+        response = requests.get(
+            url,
+            headers=self.collection.client._get_headers(),
+            verify=self.collection.client.verify_ssl
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Failed to get transaction status: {response.text}")
+        
+        result = response.json()
+        return result['status']
+
+    def poll_completion(self, target_status: str = 'complete', max_attempts: int = 10, sleep_interval: float = 1.0,
+                       collection_name: str = None, transaction_id: str = None) -> tuple[str, bool]:
         """
-        Create a transaction with context management.
-        
-        This allows for automatic commit on success or abort on exception.
-        
-        Example:
-            with client.transactions.transaction("my_collection") as txn:
-                txn.upsert_vector(vector)  # For single vector
-                txn.batch_upsert_vectors(vectors)  # For multiple vectors
-                # Auto-commits on exit or aborts on exception
+        Poll transaction status until it reaches the target status or max attempts are exceeded.
         
         Args:
-            collection_name: Name of the collection
-            
-        Yields:
-            Transaction object
+            target_status: Target status to wait for (default: 'complete')
+            max_attempts: Maximum number of polling attempts
+            sleep_interval: Time to sleep between attempts in seconds
+            collection_name: Name of the collection (default: this transaction's collection)
+            transaction_id: Transaction ID to poll (default: this transaction's ID)
+        
+        Returns:
+            tuple: (final_status, success_boolean)
         """
-        txn = self.create(collection_name)
-        try:
-            yield txn
-            txn.commit()
-        except Exception:
-            txn.abort()
-            raise 
+        collection_name = collection_name or self.collection.name
+        transaction_id = transaction_id or self.transaction_id
+        for attempt in range(max_attempts):
+            try:
+                print(f"Attempt {attempt + 1}: Waiting for transaction {transaction_id} to complete...")
+                
+                # Get actual transaction status
+                status = self.get_status(collection_name, transaction_id)
+                
+                if status == target_status:
+                    print(f"Transaction {transaction_id} completed successfully")
+                    return status, True
+                
+                if attempt < max_attempts - 1:
+                    time.sleep(sleep_interval)
+                    
+            except Exception as e:
+                print(f"Error polling transaction status: {e}")
+                if attempt < max_attempts - 1:
+                    time.sleep(sleep_interval)
+        
+        print(f"Transaction {transaction_id} may not have completed within {max_attempts} attempts")
+        return "unknown", False 
