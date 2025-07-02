@@ -132,7 +132,6 @@ class Transaction:
         if response.status_code not in [200, 204]:
             raise Exception(f"Failed to commit transaction: {response.text}")
             
-        self.transaction_id = None
     
     def abort(self) -> None:
         """
