@@ -8,7 +8,7 @@ The main components are:
 - Client: Main entry point for the SDK
 - Collection: Represents a collection in the database
 - Index: Represents an index in a collection
-- Transaction: Handles batch vector operations
+- Transaction: Handles batch vector operations and status polling
 - Search: Provides vector search functionality
 - Vectors: Manages vector operations
 - Versions: Manages collection versions
@@ -23,11 +23,12 @@ from .vectors import Vectors
 from .versions import Versions
 
 __all__ = [
-    'Client',
-    'Collection',
-    'Index',
-    'Transaction',
-    'Search',
-    'Vectors',
-    'Versions'
-] 
+    "Client",
+    "Collection",
+    "Index",
+    "Transaction",
+    "Search",
+    "Vectors",
+    "Versions",
+]
+
