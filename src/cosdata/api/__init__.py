@@ -23,11 +23,12 @@ from .vectors import Vectors
 from .versions import Versions
 
 __all__ = [
-    'Client',
-    'Collection',
-    'Index',
-    'Transaction',
-    'Search',
-    'Vectors',
-    'Versions'
-] 
+    "Client",
+    "Collection",
+    "Index",
+    "Transaction",
+    "Search",
+    "Vectors",
+    "Versions",
+]
+
