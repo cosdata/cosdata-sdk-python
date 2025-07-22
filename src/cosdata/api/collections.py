@@ -66,18 +66,6 @@ class Collection:
     ) -> Index:
         """
         Create a new dense index for this collection.
-
-        Args:
-            distance_metric: Type of distance metric (e.g., cosine, euclidean)
-            num_layers: Number of layers in the HNSW graph
-            max_cache_size: Maximum cache size
-            ef_construction: ef parameter for index construction
-            ef_search: ef parameter for search
-            neighbors_count: Number of neighbors to connect to
-            level_0_neighbors_count: Number of neighbors at level 0
-
-        Returns:
-            Index object
         """
         url = f"{self.client.base_url}/collections/{self.name}/indexes/dense"
         data = {
@@ -114,14 +102,6 @@ class Collection:
     ) -> Index:
         """
         Create a new sparse index for this collection.
-
-        Args:
-            name: Name of the index
-            quantization: Quantization bit value (16, 32, 64, 128, or 256)
-            sample_threshold: Number of vectors to sample for calibrating the index
-
-        Returns:
-            Index object
         """
         url = f"{self.client.base_url}/collections/{self.name}/indexes/sparse"
         data = {
@@ -147,15 +127,6 @@ class Collection:
     ) -> Index:
         """
         Create a new TF-IDF index for this collection.
-
-        Args:
-            name: Name of the index
-            sample_threshold: Number of documents to sample for calibrating the index
-            k1: BM25 k1 parameter that controls term frequency saturation
-            b: BM25 b parameter that controls document length normalization
-
-        Returns:
-            Index object
         """
         url = f"{self.client.base_url}/collections/{self.name}/indexes/tf-idf"
         data = {"name": name, "sample_threshold": sample_threshold, "k1": k1, "b": b}
@@ -175,21 +146,12 @@ class Collection:
     def get_index(self, name: str) -> Index:
         """
         Get an existing index.
-
-        Args:
-            name: Name of the index
-
-        Returns:
-            Index object
         """
         return Index(self, name)
 
     def get_info(self) -> Dict[str, Any]:
         """
         Get collection information.
-
-        Returns:
-            Dictionary containing collection information
         """
         if self._info is None:
             url = f"{self.client.base_url}/collections/{self.name}"
@@ -243,20 +205,14 @@ class Collection:
     def create_transaction(self) -> Transaction:
         """
         Create a new transaction for this collection.
-
-        Returns:
-            Transaction object
         """
         return Transaction(self)
 
-    def stream_upsert(
-        self, vectors: Union[Dict[str, Any], List[Dict[str, Any]]]
-    ) -> Dict[str, Any]:
+    def stream_upsert(self, vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]:
         """
         Upsert vectors in this collection using streaming transaction.
         Returns immediately with the result.
         """
-        # Ensure vectors is a list
         if isinstance(vectors, dict):
             vectors = [vectors]
 

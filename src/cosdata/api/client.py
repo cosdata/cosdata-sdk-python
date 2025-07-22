@@ -140,10 +140,10 @@ class Client:
         )
 
         if response.status_code != 200:
-            raise Exception(f"Failed to list collections: {response.text}")
-
+            raise Exception(f"Failed to list collections: {response.text}"
+                            
         response_data = response.json()
-
+        
         # Handle both cases: direct list or dictionary with collections key
         if isinstance(response_data, list):
             return response_data

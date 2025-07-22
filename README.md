@@ -79,6 +79,19 @@ print(f"Stream batch upsert result: {result}")
 result = collection.stream_delete("vector-1")
 print(f"Stream delete result: {result}")
 
+# Add vectors using streaming operations (immediate availability)
+# Single vector upsert - returns immediately with result
+result = collection.stream_upsert(vectors[0])
+print(f"Stream upsert result: {result}")
+
+# Multiple vectors upsert - returns immediately with result
+result = collection.stream_upsert(vectors[1:])
+print(f"Stream batch upsert result: {result}")
+
+# Delete vectors using streaming operations
+result = collection.stream_delete("vector-1")
+print(f"Stream delete result: {result}")
+
 # Search for similar vectors
 results = collection.search.dense(
     query_vector=vectors[0]["dense_values"],  # Use first vector as query
@@ -301,6 +314,97 @@ Methods:
   - Gets the status of the transaction.
 - `poll_completion(target_status: str = 'complete', max_attempts: int = 10, sleep_interval: float = 1.0) -> Tuple[str, bool]`
   - Polls transaction status until target status is reached or max attempts exceeded.
+
+### Transaction Status Polling
+
+The Transaction class provides methods for monitoring transaction status and polling for completion.
+
+```python
+# Create a transaction
+with collection.transaction() as txn:
+    # Get current transaction status
+    status = txn.get_status()
+    print(f"Transaction status: {status}")
+    
+    # Upsert some vectors
+    txn.upsert_vector(vector)
+    
+    # Poll for completion with custom parameters
+    final_status, success = txn.poll_completion(
+        target_status="complete",
+        max_attempts=20,
+        sleep_interval=2.0
+    )
+    
+    if success:
+        print(f"Transaction completed with status: {final_status}")
+    else:
+        print(f"Transaction may not have completed. Final status: {final_status}")
+```
+
+Methods:
+- `get_status(collection_name: str = None, transaction_id: str = None) -> str`
+  - Get the current status of this transaction (or another, if specified)
+  - Returns transaction status as a string
+  - Throws exceptions for API errors with descriptive messages
+  - Parameters:
+    - `collection_name`: Name of the collection (default: this transaction's collection)
+    - `transaction_id`: ID of the transaction to check (default: this transaction's ID)
+- `poll_completion(target_status: str = 'complete', max_attempts: int = 10, sleep_interval: float = 1.0, collection_name: str = None, transaction_id: str = None) -> tuple[str, bool]`
+  - Poll transaction status until target status is reached or max attempts exceeded
+  - Returns tuple of `(final_status, success_boolean)`
+  - Configurable polling parameters for different use cases
+  - Provides real-time progress feedback via console output
+  - Parameters:
+    - `target_status`: Target status to wait for (default: 'complete')
+    - `max_attempts`: Maximum number of polling attempts (default: 10)
+    - `sleep_interval`: Time to sleep between attempts in seconds (default: 1.0)
+    - `collection_name`: Name of the collection (default: this transaction's collection)
+    - `transaction_id`: Transaction ID to poll (default: this transaction's ID)
+
+### Streaming Operations (Implicit Transactions)
+
+The streaming operations provide immediate vector availability optimized for streaming scenarios. These methods use implicit transactions that prioritize data availability over batch processing efficiency.
+
+**Design Philosophy:**
+- **Optimized for streaming scenarios** where individual records must become immediately searchable
+- **Serves real-time monitoring systems, live content feeds, and streaming analytics**
+- **Prioritizes data availability over batch processing efficiency**
+- **Automatic transaction management** - no client-managed transaction boundaries
+- **System automatically handles batching and version allocation**
+- **Abstracts transactional complexity while preserving append-only semantics**
+
+```python
+# Single vector stream upsert - immediately available for search
+vector = {
+    "id": "vector-1",
+    "document_id": "doc-123",
+    "dense_values": [0.1, 0.2, 0.3, 0.4, 0.5],
+    "metadata": {"category": "technology"},
+    "text": "Sample text content"
+}
+result = collection.stream_upsert(vector)
+print(f"Vector immediately available: {result}")
+
+# Multiple vectors stream upsert
+vectors = [vector1, vector2, vector3]
+result = collection.stream_upsert(vectors)
+print(f"All vectors immediately available: {result}")
+
+# Single vector stream delete
+result = collection.stream_delete("vector-1")
+print(f"Vector immediately deleted: {result}")
+```
+
+Methods:
+- `stream_upsert(vectors: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]`
+  - Upsert vectors with immediate availability
+  - Returns response data immediately
+  - Accepts single vector dict or list of vector dicts
+- `stream_delete(vector_id: str) -> Dict[str, Any]`
+  - Delete a vector with immediate effect
+  - Returns response data immediately
+  - Accepts single vector ID
 
 ### Transaction Status Polling
 

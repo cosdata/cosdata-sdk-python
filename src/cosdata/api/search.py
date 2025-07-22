@@ -210,7 +210,7 @@ class Search:
         Returns:
             List of search results
         """
-        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/batch-text"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/batch-tf-idf"
         data = {
             "queries": query_texts,  # Changed from "query_texts" to "queries"
             "top_k": top_k,
@@ -259,3 +259,4 @@ class Search:
         if response.status_code != 200:
             raise Exception(f"Failed to perform batch tf-idf search: {response.text}")
         return response.json()
+

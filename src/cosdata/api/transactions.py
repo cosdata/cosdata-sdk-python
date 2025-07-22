@@ -153,6 +153,7 @@ class Transaction:
         if response.status_code not in [200, 204]:
             raise Exception(f"Failed to commit transaction: {response.text}")
 
+
     def abort(self) -> None:
         """
         Abort the transaction.
@@ -171,9 +172,16 @@ class Transaction:
             raise Exception(f"Failed to abort transaction: {response.text}")
 
     def get_status(self) -> dict:
-        """
-        Get the status of the transaction.
-        """
+           """
+        Get the status of this transaction (or another, if specified).
+        
+        Args:
+            collection_name: Name of the collection (default: this transaction's collection)
+            transaction_id: ID of the transaction to check (default: this transaction's ID)
+            
+        Returns:
+            Transaction status string
+            """
         if not self.transaction_id:
             raise Exception("No active transaction to get status for")
         url = f"{self.collection.client.base_url}/collections/{self.collection.name}/transactions/{self.transaction_id}/status"
@@ -235,6 +243,7 @@ class Transaction:
                 if attempt < max_attempts - 1:
                     time.sleep(sleep_interval)
 
+
             except Exception as e:
                 print(f"Error polling transaction status: {e}")
                 if attempt < max_attempts - 1:
@@ -244,3 +253,4 @@ class Transaction:
             f"Transaction {self.transaction_id} may not have completed within {max_attempts} attempts"
         )
         return "unknown", False
+
