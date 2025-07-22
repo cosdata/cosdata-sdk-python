@@ -220,7 +220,7 @@ class Search:
         Returns:
             List of search results
         """
-        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/batch-text"
+        url = f"{self.collection.client.base_url}/collections/{self.collection.name}/search/batch-tf-idf"
         data = {
             "query_texts": query_texts,
             "top_k": top_k,
