@@ -140,7 +140,7 @@ class Client:
         )
 
         if response.status_code != 200:
-            raise Exception(f"Failed to list collections: {response.text}"
+            raise Exception(f"Failed to list collections: {response.text}")
                             
         response_data = response.json()
         
