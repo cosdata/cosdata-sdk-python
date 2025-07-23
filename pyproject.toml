@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cosdata-client"
+name = "cosdata-sdk"
 version = "0.2.2"
 description = "A Python SDK for interacting with the Cosdata Vector Database"
 readme = "README.md"
