@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cosdata-sdk"
-version = "0.2.3"
+version = "0.2.4"
 description = "A Python SDK for interacting with the Cosdata Vector Database"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -51,6 +51,12 @@ include = [
     "src/cosdata/**/*.py",
     "README.md",
     "LICENSE",
+]
+
+[dependency-groups]
+dev = [
+    "build>=1.2.2.post1",
+    "twine>=6.1.0",
 ]
 
 [tool.hatch.build.targets.wheel.shared-data]
