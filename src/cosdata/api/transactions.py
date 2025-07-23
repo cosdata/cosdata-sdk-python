@@ -172,7 +172,7 @@ class Transaction:
             raise Exception(f"Failed to abort transaction: {response.text}")
 
     def get_status(self) -> dict:
-           """
+        """
         Get the status of this transaction (or another, if specified).
         
         Args:
@@ -181,7 +181,7 @@ class Transaction:
             
         Returns:
             Transaction status string
-            """
+        """
         if not self.transaction_id:
             raise Exception("No active transaction to get status for")
         url = f"{self.collection.client.base_url}/collections/{self.collection.name}/transactions/{self.transaction_id}/status"

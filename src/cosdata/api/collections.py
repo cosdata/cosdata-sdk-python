@@ -64,7 +64,7 @@ class Collection:
         neighbors_count: int = 32,
         level_0_neighbors_count: int = 64,
     ) -> Index:
-           """
+        """
         Create a new dense index for this collection.
         
         Args:
@@ -78,7 +78,7 @@ class Collection:
             
         Returns:
             Index object
-            """
+        """
         url = f"{self.client.base_url}/collections/{self.name}/indexes/dense"
         data = {
             "name": f"{self.name}_index",
